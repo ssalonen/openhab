@@ -28,14 +28,17 @@ import net.wimpi.modbus.io.ModbusTransport;
  * @version @version@ (@date@)
  */
 public class UDPMasterConnection {
+    
+    private static int LOCAL_PORT = 50000;
 
-    // instance attributes
+    //instance attributes
     private UDPMasterTerminal m_Terminal;
     private int m_Timeout = Modbus.DEFAULT_TIMEOUT;
     private boolean m_Connected;
 
     private InetAddress m_Address;
     private int m_Port = Modbus.DEFAULT_PORT;
+ 
 
     /**
      * Constructs a <tt>UDPMasterConnection</tt> instance
@@ -45,25 +48,26 @@ public class UDPMasterConnection {
      */
     public UDPMasterConnection(InetAddress adr) {
         m_Address = adr;
-    }// constructor
+    }//constructor
 
     /**
      * Opens this <tt>UDPMasterConnection</tt>.
      *
      * @throws Exception if there is a network failure.
      */
-    public synchronized void connect() throws Exception {
+    public synchronized void connect()
+            throws Exception {
         if (!m_Connected) {
             m_Terminal = new UDPMasterTerminal();
             m_Terminal.setLocalAddress(InetAddress.getLocalHost());
-            m_Terminal.setLocalPort(5000);
+            m_Terminal.setLocalPort(LOCAL_PORT);
             m_Terminal.setRemoteAddress(m_Address);
             m_Terminal.setRemotePort(m_Port);
             m_Terminal.setTimeout(m_Timeout);
             m_Terminal.activate();
             m_Connected = true;
         }
-    }// connect
+    }//connect
 
     /**
      * Closes this <tt>UDPMasterConnection</tt>.
@@ -73,13 +77,11 @@ public class UDPMasterConnection {
             try {
                 m_Terminal.deactivate();
             } catch (Exception ex) {
-                if (Modbus.debug) {
-                    ex.printStackTrace();
-                }
+                if (Modbus.debug) ex.printStackTrace();
             }
             m_Connected = false;
         }
-    }// close
+    }//close
 
     /**
      * Returns the <tt>ModbusTransport</tt> associated with this
@@ -89,7 +91,7 @@ public class UDPMasterConnection {
      */
     public ModbusTransport getModbusTransport() {
         return m_Terminal.getModbusTransport();
-    }// getModbusTransport
+    }//getModbusTransport
 
     /**
      * Returns the terminal used for handling the package traffic.
@@ -98,7 +100,7 @@ public class UDPMasterConnection {
      */
     public UDPTerminal getTerminal() {
         return m_Terminal;
-    }// getTerminal
+    }//getTerminal
 
     /**
      * Returns the timeout for this <tt>UDPMasterConnection</tt>.
@@ -107,7 +109,7 @@ public class UDPMasterConnection {
      */
     public int getTimeout() {
         return m_Timeout;
-    }// getReceiveTimeout
+    }//getReceiveTimeout
 
     /**
      * Sets the timeout for this <tt>UDPMasterConnection</tt>.
@@ -117,7 +119,7 @@ public class UDPMasterConnection {
     public void setTimeout(int timeout) {
         m_Timeout = timeout;
         m_Terminal.setTimeout(timeout);
-    }// setReceiveTimeout
+    }//setReceiveTimeout
 
     /**
      * Returns the destination port of this
@@ -127,7 +129,7 @@ public class UDPMasterConnection {
      */
     public int getPort() {
         return m_Port;
-    }// getPort
+    }//getPort
 
     /**
      * Sets the destination port of this
@@ -138,7 +140,7 @@ public class UDPMasterConnection {
      */
     public void setPort(int port) {
         m_Port = port;
-    }// setPort
+    }//setPort
 
     /**
      * Returns the destination <tt>InetAddress</tt> of this
@@ -148,7 +150,7 @@ public class UDPMasterConnection {
      */
     public InetAddress getAddress() {
         return m_Address;
-    }// getAddress
+    }//getAddress
 
     /**
      * Sets the destination <tt>InetAddress</tt> of this
@@ -158,7 +160,7 @@ public class UDPMasterConnection {
      */
     public void setAddress(InetAddress adr) {
         m_Address = adr;
-    }// setAddress
+    }//setAddress
 
     /**
      * Tests if this <tt>UDPMasterConnection</tt> is connected.
@@ -167,6 +169,6 @@ public class UDPMasterConnection {
      */
     public boolean isConnected() {
         return m_Connected;
-    }// isConnected
+    }//isConnected
 
-}// class UDPMasterConnection
+}//class UDPMasterConnection

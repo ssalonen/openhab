@@ -18,6 +18,7 @@ package net.wimpi.modbus.net;
 
 import java.net.InetAddress;
 
+import net.wimpi.modbus.io.ModbusTransport;
 import net.wimpi.modbus.io.ModbusUDPTransport;
 
 /**
