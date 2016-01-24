@@ -117,6 +117,14 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         connectionPool = genericKeyedObjectPool;
     }
 
+    /**
+     * For testing
+     */
+    static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> getReconstructedConnectionPoolForTesting() {
+        reconstructConnectionPool();
+        return connectionPool;
+    }
+
     /** slaves update interval in milliseconds, defaults to 200ms */
     public static int pollInterval = 200;
 

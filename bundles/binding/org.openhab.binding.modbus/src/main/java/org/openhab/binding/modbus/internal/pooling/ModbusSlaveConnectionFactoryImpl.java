@@ -55,7 +55,7 @@ public class ModbusSlaveConnectionFactoryImpl
     }
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
-    private Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs;
+    private volatile Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new ConcurrentHashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
     private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
     private Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
 
@@ -135,7 +135,8 @@ public class ModbusSlaveConnectionFactoryImpl
             }
             lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
-            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), endpoint, e.getMessage());
+            logger.error("Error connecting connection {} for endpoint {}: {}", obj.getObject(), endpoint,
+                    e.getMessage());
         }
     }
 

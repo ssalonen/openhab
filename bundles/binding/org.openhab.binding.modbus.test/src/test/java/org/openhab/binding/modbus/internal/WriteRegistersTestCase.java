@@ -147,7 +147,7 @@ public class WriteRegistersTestCase extends TestCaseSupport {
     }
 
     private void configureItems() throws BindingConfigParseException {
-        if (Arrays.asList(BOOL_COMMANDS).contains(command) || ModbusBindingProvider.VALUE_TYPE_BIT.equals(type)) {
+        if (Arrays.asList(BOOL_COMMANDS).contains(command) || ModbusBindingProvider.VALUE_TYPE_BIT.equals(valueType)) {
             configureSwitchItemBinding(2, SLAVE_NAME, 0, "", itemInitialState);
         } else {
             configureNumberItemBinding(2, SLAVE_NAME, 0, "", itemInitialState);
@@ -176,7 +176,8 @@ public class WriteRegistersTestCase extends TestCaseSupport {
             int expectedRegisterWriteStartIndex = nonZeroOffset ? (itemIndex + 1) : itemIndex;
             boolean writeExpected = type == ModbusBindingProvider.TYPE_HOLDING;
             int expectedRequests = (writeExpected ? 1 : 0) + (readRequestExpected ? 1 : 0);
-            int expectedConnections = expectedRequests;
+            // One connection per request
+            int expectedConnections = serverType.equals(ServerType.UDP) ? 1 : expectedRequests;
 
             // Give the system 5 seconds to make the expected connections & requests
             waitForConnectionsReceived(expectedConnections);

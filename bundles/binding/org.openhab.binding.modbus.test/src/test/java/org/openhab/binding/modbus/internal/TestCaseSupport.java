@@ -113,7 +113,7 @@ public class TestCaseSupport {
     @Spy
     protected SerialConnectionFactory serialConnectionFactory = new SerialConnectionFactoryImpl();
 
-    protected ResultCaptor<ModbusRequest> modbustRequestCaptor = new ResultCaptor<ModbusRequest>();
+    protected ResultCaptor<ModbusRequest> modbustRequestCaptor;
 
     protected ModbusBinding binding;
     protected ModbusTCPListener tcpListener;
@@ -123,6 +123,7 @@ public class TestCaseSupport {
     protected int tcpModbusPort = -1;
     protected int udpModbusPort = -1;
     protected ServerType serverType = ServerType.TCP;
+    protected long artificialServerWait = 0;
 
     private Thread serialServerThread = new Thread("ModbusBindingTestsSerialServer") {
         @Override
@@ -251,6 +252,7 @@ public class TestCaseSupport {
 
     @Before
     public void setUp() throws Exception {
+        modbustRequestCaptor = new ResultCaptor<ModbusRequest>(artificialServerWait);
         MockitoAnnotations.initMocks(this);
         startServer();
     }

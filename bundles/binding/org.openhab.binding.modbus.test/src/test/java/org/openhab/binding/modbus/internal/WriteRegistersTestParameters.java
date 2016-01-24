@@ -29,7 +29,9 @@ public class WriteRegistersTestParameters extends TestCaseSupport {
         // written as rounded 16bit integer, same goes for 32bit int)
         // generateNumberItemFloat32(parameters);
         // generateNumberItemInt32(parameters);
-
+        //
+        //
+        //
         // Not tested:
         // !!! Switch to bit (correct functionality tbd)
         // (could be implemented?) UDP

@@ -9,4 +9,5 @@ Require-Bundle: org.junit
 Bundle-Vendor: openHAB.org
 Bundle-ClassPath: lib/mockito-all-1.10.19.jar,
     lib/slf4j-simple-1.7.5.jar,
+    ../org.openhab.binding.modbus/lib/commons-pool2-2.4.2.jar
     .
