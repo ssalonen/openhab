@@ -65,7 +65,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
             "^(" + TCP_PREFIX + "|" + UDP_PREFIX + "|" + SERIAL_PREFIX + "|)\\.(.*?)\\.(" + VALID_COFIG_KEYS + ")$");
 
     /** Stores instances of all the slaves defined in cfg file */
-    private static Map<String, ModbusSlave> modbusSlaves = new ConcurrentHashMap<String, ModbusSlave>();
+    private static Map<String, BaseModbusSlave> modbusSlaves = new ConcurrentHashMap<String, BaseModbusSlave>();
 
     private static GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
 
@@ -128,7 +128,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         for (ModbusBindingProvider provider : providers) {
             if (provider.providesBindingFor(itemName)) {
                 ModbusBindingConfig config = provider.getConfig(itemName);
-                ModbusSlave slave = modbusSlaves.get(config.slaveName);
+                BaseModbusSlave slave = modbusSlaves.get(config.slaveName);
                 slave.executeCommand(command, config.readRegister, config.writeRegister);
             }
         }
@@ -251,11 +251,11 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
      */
     @Override
     protected void execute() {
-        Collection<ModbusSlave> slaves = new HashSet<ModbusSlave>();
+        Collection<BaseModbusSlave> slaves = new HashSet<BaseModbusSlave>();
         synchronized (slaves) {
             slaves.addAll(modbusSlaves.values());
         }
-        for (ModbusSlave slave : slaves) {
+        for (BaseModbusSlave slave : slaves) {
             slave.update(this);
         }
     }
@@ -294,7 +294,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             pollInterval = Integer.valueOf((String) config.get(key));
                         }
                     } else if ("writemultipleregisters".equals(key)) {
-                        ModbusSlave.setWriteMultipleRegisters(Boolean.valueOf(config.get(key).toString()));
+                        BaseModbusSlave.setWriteMultipleRegisters(Boolean.valueOf(config.get(key).toString()));
                     } else {
                         logger.debug(
                                 "given modbus-slave-config-key '{}' does not follow the expected pattern or 'serial.<slaveId>.<{}>'",
@@ -308,7 +308,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
                 String slave = matcher.group(2);
 
-                ModbusSlave modbusSlave = modbusSlaves.get(slave);
+                BaseModbusSlave modbusSlave = modbusSlaves.get(slave);
                 if (modbusSlave == null) {
                     if (matcher.group(1).equals(TCP_PREFIX)) {
                         modbusSlave = new ModbusTcpSlave(slave, connectionPool);

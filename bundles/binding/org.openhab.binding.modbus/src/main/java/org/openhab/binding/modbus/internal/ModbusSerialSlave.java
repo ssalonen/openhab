@@ -27,7 +27,7 @@ import net.wimpi.modbus.util.SerialParameters;
  * @author Dmitry Krasnov
  * @since 1.1.0
  */
-public class ModbusSerialSlave extends ModbusSlave {
+public class ModbusSerialSlave extends BaseModbusSlave {
 
     public ModbusSerialSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);

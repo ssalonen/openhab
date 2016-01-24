@@ -49,9 +49,9 @@ import net.wimpi.modbus.util.BitVector;
  * @author Dmitry Krasnov
  * @since 1.1.0
  */
-public abstract class ModbusSlave {
+public abstract class BaseModbusSlave {
 
-    private static final Logger logger = LoggerFactory.getLogger(ModbusSlave.class);
+    private static final Logger logger = LoggerFactory.getLogger(BaseModbusSlave.class);
 
     /** name - slave name from cfg file, used for items binding */
     protected String name = null;
@@ -106,7 +106,7 @@ public abstract class ModbusSlave {
      * @param slave slave name from cfg file used for item binding
      * @connectionPool pool to create connections
      */
-    public ModbusSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
+    public BaseModbusSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         this.name = slave;
         this.connectionPool = connectionPool;
     }

@@ -17,7 +17,7 @@ import net.wimpi.modbus.Modbus;
  *
  * @author hg8496
  */
-public abstract class ModbusIPSlave extends ModbusSlave {
+public abstract class ModbusIPSlave extends BaseModbusSlave {
 
     public ModbusIPSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);
