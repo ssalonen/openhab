@@ -37,8 +37,7 @@ import net.wimpi.modbus.util.ThreadPool;
  * @author Dieter Wimberger
  * @version @version@ (@date@)
  */
-public class ModbusTCPListener
-        implements Runnable {
+public class ModbusTCPListener implements Runnable {
 
     public static class TCPSlaveConnectionFactoryImpl implements TCPSlaveConnectionFactory {
 
@@ -61,11 +60,11 @@ public class ModbusTCPListener
     private InetAddress m_Address;
     private TCPSlaveConnectionFactory m_ConnectionFactory;
 
-    private static InetAddress getLocalHost(){
+    private static InetAddress getLocalHost() {
         try {
             return InetAddress.getLocalHost();
         } catch (UnknownHostException e) {
-
+            return null;
         }
     }
 
@@ -73,12 +72,12 @@ public class ModbusTCPListener
      * Constructs a ModbusTCPListener instance.<br>
      *
      * @param poolsize the size of the <tt>ThreadPool</tt> used to handle
-     *                incoming requests.
+     *            incoming requests.
      * @param connectionFactory factory for creating connections
      */
     public ModbusTCPListener(int poolsize, TCPSlaveConnectionFactory connectionFactory) {
         this(poolsize, getLocalHost(), connectionFactory);
-    }//constructor
+    }// constructor
 
     public ModbusTCPListener(int poolsize) {
         this(poolsize, new TCPSlaveConnectionFactoryImpl());
@@ -88,7 +87,7 @@ public class ModbusTCPListener
      * Constructs a ModbusTCPListener instance.<br>
      *
      * @param poolsize the size of the <tt>ThreadPool</tt> used to handle
-     *                incoming requests.
+     *            incoming requests.
      * @param addr the interface to use for listening.
      * @param connectionFactory factory for creating connections
      */
@@ -96,7 +95,7 @@ public class ModbusTCPListener
         m_ThreadPool = new ThreadPool(poolsize);
         m_Address = addr;
         m_ConnectionFactory = connectionFactory;
-    }//constructor
+    }// constructor
 
     public ModbusTCPListener(int poolsize, InetAddress addr) {
         this(poolsize, addr, new TCPSlaveConnectionFactoryImpl());
@@ -109,27 +108,28 @@ public class ModbusTCPListener
      */
     public void setPort(int port) {
         m_Port = port;
-    }//setPort
-
+    }// setPort
 
     /**
      * Return local port of the ServerSocket.
+     * 
      * @return
      */
-    public int getLocalPort(){
+    public int getLocalPort() {
         if (m_ServerSocket == null) {
             return -1;
         }
         return m_ServerSocket.getLocalPort();
     }
 
-    /** Sets the address of the interface to be listened to.
+    /**
+     * Sets the address of the interface to be listened to.
      *
      * @param addr an <tt>InetAddress</tt> instance.
      */
     public void setAddress(InetAddress addr) {
         m_Address = addr;
-    }//setAddress
+    }// setAddress
 
     /**
      * Starts this <tt>ModbusTCPListener</tt>.
@@ -138,7 +138,7 @@ public class ModbusTCPListener
         m_Listener = new Thread(this);
         m_Listener.start();
         m_Listening = true;
-    }//start
+    }// start
 
     /**
      * Stops this <tt>ModbusTCPListener</tt>.
@@ -149,9 +149,9 @@ public class ModbusTCPListener
             m_ServerSocket.close();
             m_Listener.join();
         } catch (Exception ex) {
-            //?
+            // ?
         }
-    }//stop
+    }// stop
 
     /**
      * Accepts incoming connections and handles then with
@@ -161,28 +161,24 @@ public class ModbusTCPListener
     public void run() {
         try {
             /*
-                    A server socket is opened with a connectivity queue of a size specified
-                    in int floodProtection.    Concurrent login handling under normal circumstances
-                    should be allright, denial of service attacks via massive parallel
-                    program logins can probably be prevented.
-            */
+             * A server socket is opened with a connectivity queue of a size specified
+             * in int floodProtection. Concurrent login handling under normal circumstances
+             * should be allright, denial of service attacks via massive parallel
+             * program logins can probably be prevented.
+             */
             m_ServerSocket = new ServerSocket(m_Port, m_FloodProtection, m_Address);
-            logger.debug("Listenening to {} (Port {})",    m_ServerSocket.toString(), m_Port);
+            logger.debug("Listenening to {} (Port {})", m_ServerSocket.toString(), m_Port);
 
-            //Infinite loop, taking care of resources in case of a lot of parallel logins
+            // Infinite loop, taking care of resources in case of a lot of parallel logins
             do {
                 Socket incoming = m_ServerSocket.accept();
                 logger.debug("Making new connection {}", incoming.toString());
                 if (m_Listening) {
-                    //FIXME: Replace with object pool due to resource issues
-                    m_ThreadPool.execute(
-                            new TCPConnectionHandler(
-                                m_ConnectionFactory.create(incoming)
-                            )
-                    );
+                    // FIXME: Replace with object pool due to resource issues
+                    m_ThreadPool.execute(new TCPConnectionHandler(m_ConnectionFactory.create(incoming)));
                     count();
                 } else {
-                    //just close the socket
+                    // just close the socket
                     incoming.close();
                 }
             } while (m_Listening);

@@ -17,7 +17,6 @@
 package net.wimpi.modbus.net;
 
 import java.net.InetAddress;
-import java.net.Socket;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +25,6 @@ import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.ModbusCoupler;
 import net.wimpi.modbus.ModbusIOException;
 import net.wimpi.modbus.io.ModbusTransport;
-import net.wimpi.modbus.io.ModbusUDPTransport;
 import net.wimpi.modbus.msg.ModbusRequest;
 import net.wimpi.modbus.msg.ModbusResponse;
 
@@ -46,10 +44,13 @@ public class ModbusUDPListener {
     private boolean m_Listening;
     private InetAddress m_Interface;
 
+    private UDPSlaveTerminalFactory m_TerminalFactory;
+
     /**
      * Constructs a new ModbusUDPListener instance.
      */
     public ModbusUDPListener() {
+        this(null);
     }// ModbusUDPListener
 
     /**
@@ -59,8 +60,21 @@ public class ModbusUDPListener {
      * @param ifc an <tt>InetAddress</tt> instance.
      */
     public ModbusUDPListener(InetAddress ifc) {
-        m_Interface = ifc;
+        this(ifc, new UDPSlaveTerminalFactory() {
+
+            @Override
+            public UDPSlaveTerminal create(InetAddress interfac, int port) {
+                UDPSlaveTerminal terminal = new UDPSlaveTerminal(interfac);
+                terminal.setLocalPort(port);
+                return terminal;
+            }
+        });
     }// ModbusUDPListener
+
+    public ModbusUDPListener(InetAddress ifc, UDPSlaveTerminalFactory terminalFactory) {
+        m_Interface = ifc;
+        this.m_TerminalFactory = terminalFactory;
+    }
 
     /**
      * Returns the number of the port this <tt>ModbusUDPListener</tt>
@@ -88,11 +102,8 @@ public class ModbusUDPListener {
     public void start() {
         // start listening
         try {
-            if (m_Interface == null) {
-                m_Terminal = new UDPSlaveTerminal(InetAddress.getLocalHost());
-            } else {
-                m_Terminal = new UDPSlaveTerminal(m_Interface);
-            }
+            m_Terminal = m_TerminalFactory.create(m_Interface == null ? InetAddress.getLocalHost() : m_Interface,
+                    m_Port);
             m_Terminal.setLocalPort(m_Port);
             m_Terminal.activate();
 
@@ -129,10 +140,10 @@ public class ModbusUDPListener {
 
     class ModbusUDPHandler implements Runnable {
 
-        private ModbusUDPTransport m_Transport;
+        private ModbusTransport m_Transport;
         private boolean m_Continue = true;
 
-        public ModbusUDPHandler(ModbusUDPTransport transport) {
+        public ModbusUDPHandler(ModbusTransport transport) {
             m_Transport = transport;
         }// constructor
 
@@ -175,5 +186,12 @@ public class ModbusUDPListener {
         }// stop
 
     }// inner class ModbusUDPHandler
+
+    public int getLocalPort() {
+        if (m_Terminal == null) {
+            return -1;
+        }
+        return m_Terminal.getLocalPort();
+    }
 
 }// class ModbusUDPListener
