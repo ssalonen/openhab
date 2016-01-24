@@ -22,6 +22,8 @@ import java.io.InputStream;
 import java.util.TooManyListenersException;
 
 import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang.builder.StandardToStringStyle;
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +50,7 @@ import net.wimpi.modbus.util.SerialParameters;
  * @author John Charlton
  * @version @version@ (@date@)
  */
-public class SerialConnection implements SerialPortEventListener {
+public class SerialConnection implements SerialPortEventListener, ModbusSlaveConnection {
     private static final Logger logger = LoggerFactory.getLogger(SerialConnection.class);
 
     private SerialParameters m_Parameters;
@@ -57,6 +59,12 @@ public class SerialConnection implements SerialPortEventListener {
     private SerialPort m_SerialPort;
     private boolean m_Open;
     private InputStream m_SerialIn;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     /**
      * Creates a SerialConnection object and initializes variables passed in
@@ -94,7 +102,9 @@ public class SerialConnection implements SerialPortEventListener {
      * @throws Exception if an error occurs.
      */
     public void open() throws Exception {
-
+        if (isOpen()) {
+            return;
+        }
         // If this is Linux then first of all we need to check that
         // device file exists. Otherwise call to m_PortIdentifyer.open()
         // method will crash JVM.
@@ -137,11 +147,12 @@ public class SerialConnection implements SerialPortEventListener {
             throw e;
         }
 
+        setReceiveTimeout(m_Parameters.getReceiveTimeoutMillis());
+
         if (Modbus.SERIAL_ENCODING_ASCII.equals(m_Parameters.getEncoding())) {
             m_Transport = new ModbusASCIITransport();
         } else if (Modbus.SERIAL_ENCODING_RTU.equals(m_Parameters.getEncoding())) {
             m_Transport = new ModbusRTUTransport();
-            setReceiveTimeout(m_Parameters.getReceiveTimeout()); // just here for the moment.
         } else if (Modbus.SERIAL_ENCODING_BIN.equals(m_Parameters.getEncoding())) {
             m_Transport = new ModbusBINTransport();
         }
@@ -188,6 +199,10 @@ public class SerialConnection implements SerialPortEventListener {
         }
     }// setReceiveTimeout
 
+    public SerialParameters getParameters() {
+        return m_Parameters;
+    }
+
     /**
      * Sets the connection parameters to the setting in the parameters object.
      * If set fails return the parameters object to origional settings and
@@ -196,7 +211,7 @@ public class SerialConnection implements SerialPortEventListener {
      * @throws Exception if the configured parameters cannot be set properly
      *             on the port.
      */
-    public void setConnectionParameters() throws Exception {
+    protected void setConnectionParameters() throws Exception {
 
         // Save state of parameters before trying a set.
         int oldBaudRate = m_SerialPort.getBaudRate();
@@ -291,7 +306,7 @@ public class SerialConnection implements SerialPortEventListener {
                  * }
                  * } catch (Exception ex) {
                  * //handle
-                 * 
+                 *
                  * }
                  */
                 break;
@@ -302,5 +317,27 @@ public class SerialConnection implements SerialPortEventListener {
                 logger.debug("Serial port event: {}", e.getEventType());
         }
     }// serialEvent
+
+    @Override
+    public boolean connect() throws Exception {
+        open();
+        return isOpen();
+    }
+
+    @Override
+    public void resetConnection() {
+        close();
+    }
+
+    @Override
+    public boolean isConnected() {
+        return isOpen();
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, toStringStyle).append("portName", m_Parameters.getPortName())
+                .append("port", m_SerialPort).toString();
+    }
 
 }// class SerialConnection
