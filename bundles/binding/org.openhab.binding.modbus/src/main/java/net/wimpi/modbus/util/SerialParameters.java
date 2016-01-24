@@ -18,6 +18,10 @@ package net.wimpi.modbus.util;
 
 import java.util.Properties;
 
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang.builder.ToStringBuilder;
+
 import gnu.io.SerialPort;
 import net.wimpi.modbus.Modbus;
 
@@ -48,16 +52,8 @@ public class SerialParameters {
      * default values: 9600 boud - 8N1 - ASCII.
      */
     public SerialParameters() {
-        m_PortName = "";
-        m_BaudRate = 9600;
-        m_FlowControlIn = SerialPort.FLOWCONTROL_NONE;
-        m_FlowControlOut = SerialPort.FLOWCONTROL_NONE;
-        m_Databits = SerialPort.DATABITS_8;
-        m_Stopbits = SerialPort.STOPBITS_1;
-        m_Parity = SerialPort.PARITY_NONE;
-        m_Encoding = Modbus.DEFAULT_SERIAL_ENCODING;
-        m_ReceiveTimeout = 500; // 5 secs
-        m_Echo = false;
+        this("", 9600, SerialPort.FLOWCONTROL_NONE, SerialPort.FLOWCONTROL_NONE, SerialPort.DATABITS_8,
+                SerialPort.STOPBITS_1, SerialPort.PARITY_NONE, Modbus.DEFAULT_SERIAL_ENCODING, false, 500);
     }// constructor
 
     /**
@@ -70,21 +66,59 @@ public class SerialParameters {
      * @param flowControlOut Type of flow control for sending.
      * @param databits The number of data bits.
      * @param stopbits The number of stop bits.
+     * @param encoding
      * @param parity The type of parity.
      * @param echo Flag for setting the RS485 echo mode.
+     * @param timeout
      */
     public SerialParameters(String portName, int baudRate, int flowControlIn, int flowControlOut, int databits,
-            int stopbits, int parity, boolean echo, int timeout) {
-        m_PortName = portName;
-        m_BaudRate = baudRate;
-        m_FlowControlIn = flowControlIn;
-        m_FlowControlOut = flowControlOut;
-        m_Databits = databits;
-        m_Stopbits = stopbits;
-        m_Parity = parity;
-        m_Echo = echo;
-        m_ReceiveTimeout = timeout;
+            int stopbits, int parity, String encoding, boolean echo, int timeout) {
+        setPortName(portName);
+        setBaudRate(baudRate);
+        setFlowControlIn(flowControlIn);
+        setFlowControlOut(flowControlOut);
+        setDatabits(databits);
+        setStopbits(stopbits);
+        setParity(parity);
+        setEncoding(encoding);
+        setEcho(echo);
+        setReceiveTimeout(timeout);
     }// constructor
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this).append("portName", m_PortName).append("baudRate", m_BaudRate)
+                .append("flowControlIn", getFlowControlInString()).append("flowControlOut", getFlowControlOutString())
+                .append("databits", getDatabitsString()).append("stopbits", getStopbitsString())
+                .append("parity", getParityString()).append("encoding", m_Encoding).append("echo", m_Echo)
+                .append("receiveTimeout", m_ReceiveTimeout).toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(7, 51).append(m_PortName).append(m_BaudRate).append(m_FlowControlIn)
+                .append(m_FlowControlOut).append(m_Databits).append(m_Stopbits).append(m_Parity).append(m_Encoding)
+                .append(m_Echo).append(m_ReceiveTimeout).toHashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (obj == this) {
+            return true;
+        }
+        if (obj.getClass() != getClass()) {
+            return false;
+        }
+        SerialParameters rhs = (SerialParameters) obj;
+        return new EqualsBuilder().append(m_PortName, rhs.m_PortName).append(m_BaudRate, rhs.m_BaudRate)
+                .append(m_FlowControlIn, rhs.m_FlowControlIn).append(m_FlowControlOut, rhs.m_FlowControlOut)
+                .append(m_Databits, rhs.m_Databits).append(m_Stopbits, rhs.m_Stopbits).append(m_Parity, rhs.m_Parity)
+                .append(m_Encoding, rhs.m_Encoding).append(m_Echo, rhs.m_Echo)
+                .append(m_ReceiveTimeout, rhs.m_ReceiveTimeout).isEquals();
+    }
 
     /**
      * Constructs a new <tt>SerialParameters</tt> instance with
@@ -619,7 +653,7 @@ public class SerialParameters {
      *            setEncoding(props.getProperty("encoding"));
      *            setEcho(new Boolean(props.getProperty("echo")).booleanValue());
      *            }//loadFrom
-     * 
+     *
      */
 
 }// class SerialParameters

@@ -18,6 +18,8 @@ package net.wimpi.modbus.net;
 
 import java.net.InetAddress;
 
+import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
+
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.io.ModbusTransport;
 
@@ -27,7 +29,7 @@ import net.wimpi.modbus.io.ModbusTransport;
  * @author Dieter Wimberger
  * @version @version@ (@date@)
  */
-public class UDPMasterConnection {
+public class UDPMasterConnection implements ModbusSlaveConnection {
 
     // instance attributes
     private UDPMasterTerminal m_Terminal;
@@ -47,12 +49,18 @@ public class UDPMasterConnection {
         m_Address = adr;
     }// constructor
 
+    public UDPMasterConnection(InetAddress adr, int port) {
+        this(adr);
+        setPort(port);
+    }
+
     /**
      * Opens this <tt>UDPMasterConnection</tt>.
      *
      * @throws Exception if there is a network failure.
      */
-    public synchronized void connect() throws Exception {
+    @Override
+    public synchronized boolean connect() throws Exception {
         if (!m_Connected) {
             m_Terminal = new UDPMasterTerminal();
             m_Terminal.setLocalAddress(InetAddress.getLocalHost());
@@ -63,6 +71,7 @@ public class UDPMasterConnection {
             m_Terminal.activate();
             m_Connected = true;
         }
+        return m_Connected;
     }// connect
 
     /**
@@ -165,8 +174,14 @@ public class UDPMasterConnection {
      *
      * @return <tt>true</tt> if connected, <tt>false</tt> otherwise.
      */
+    @Override
     public boolean isConnected() {
         return m_Connected;
     }// isConnected
+
+    @Override
+    public void resetConnection() {
+        close();
+    }
 
 }// class UDPMasterConnection

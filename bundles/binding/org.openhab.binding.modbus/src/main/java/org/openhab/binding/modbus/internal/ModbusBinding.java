@@ -21,8 +21,14 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.pool2.KeyedObjectPool;
+import org.apache.commons.pool2.SwallowedExceptionListener;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.openhab.binding.modbus.ModbusBindingProvider;
 import org.openhab.binding.modbus.internal.ModbusGenericBindingProvider.ModbusBindingConfig;
+import org.openhab.binding.modbus.internal.pooling.ModbusSlaveConnectionFactoryImpl;
+import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.core.binding.AbstractActiveBinding;
 import org.openhab.core.binding.BindingProvider;
 import org.openhab.core.library.items.NumberItem;
@@ -37,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import net.wimpi.modbus.procimg.InputRegister;
 import net.wimpi.modbus.util.BitVector;
+import net.wimpi.modbus.util.SerialParameters;
 
 /**
  * Modbus binding allows to connect to multiple Modbus slaves as TCP master.
@@ -59,6 +66,37 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
     /** Stores instances of all the slaves defined in cfg file */
     private static Map<String, ModbusSlave> modbusSlaves = new ConcurrentHashMap<String, ModbusSlave>();
+
+    private static GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
+
+    static {
+        // When the pool is exhausted, multiple calling threads may be simultaneously blocked waiting for instances to
+        // become available. As of pool 1.5, a "fairness" algorithm has been implemented to ensure that threads receive
+        // available instances in request arrival order.
+        poolConfig.setFairness(true);
+        poolConfig.setBlockWhenExhausted(true);
+        poolConfig.setMaxTotalPerKey(1);
+        poolConfig.setTestOnBorrow(true);
+        poolConfig.setTestOnReturn(true);
+        poolConfig.setMaxWaitMillis(-1);
+        poolConfig.setJmxEnabled(false);
+    }
+
+    static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
+
+    static {
+        GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> genericKeyedObjectPool = new GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection>(
+                new ModbusSlaveConnectionFactoryImpl(), poolConfig);
+        genericKeyedObjectPool.setSwallowedExceptionListener(new SwallowedExceptionListener() {
+
+            @Override
+            public void onSwallowException(Exception e) {
+                logger.error("Connection pool swallowed unexpected exception: {}", e.getMessage());
+
+            }
+        });
+        connectionPool = genericKeyedObjectPool;
+    }
 
     /** slaves update interval in milliseconds, defaults to 200ms */
     public static int pollInterval = 200;
@@ -98,7 +136,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
     /**
      * Posts update event to OpenHAB bus for "holding" type slaves
-     * 
+     *
      * @param binding ModbusBinding to get item configuration from BindingProviding
      * @param registers data received from slave device in the last pollInterval
      * @param itemName item to update
@@ -170,7 +208,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
     /**
      * Posts update event to OpenHAB bus for "coil" type slaves
-     * 
+     *
      * @param binding ModbusBinding to get item configuration from BindingProviding
      * @param registers data received from slave device in the last pollInterval
      * @param item item to update
@@ -193,7 +231,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
     /**
      * Returns names of all the items, registered with this binding
-     * 
+     *
      * @return list of item names
      */
     public Collection<String> getItemNames() {
@@ -223,14 +261,19 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
     }
 
     private void clearSlaves() {
-        for (ModbusSlave slave : modbusSlaves.values()) {
-            slave.resetConnection();
+        try {
+            // Closes all connections by calling destroyObject method in the ObjectFactory implementation
+            connectionPool.clear();
+        } catch (Exception e) {
+            // Should not happen
+            logger.error("Error clearing connections", e);
         }
         modbusSlaves.clear();
     }
 
     @Override
     public void updated(Dictionary<String, ?> config) throws ConfigurationException {
+        setProperlyConfigured(false);
         // remove all known items if configuration changed
         clearSlaves();
         if (config != null) {
@@ -268,11 +311,11 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 ModbusSlave modbusSlave = modbusSlaves.get(slave);
                 if (modbusSlave == null) {
                     if (matcher.group(1).equals(TCP_PREFIX)) {
-                        modbusSlave = new ModbusTcpSlave(slave);
+                        modbusSlave = new ModbusTcpSlave(slave, connectionPool);
                     } else if (matcher.group(1).equals(UDP_PREFIX)) {
-                        modbusSlave = new ModbusUdpSlave(slave);
+                        modbusSlave = new ModbusUdpSlave(slave, connectionPool);
                     } else if (matcher.group(1).equals(SERIAL_PREFIX)) {
-                        modbusSlave = new ModbusSerialSlave(slave);
+                        modbusSlave = new ModbusSerialSlave(slave, connectionPool);
                     } else {
                         throw new ConfigurationException(slave, "the given slave type '" + slave + "' is unknown");
                     }
@@ -293,24 +336,27 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(chunks[1]));
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
+                        SerialParameters serialParameters = new SerialParameters();
                         // expecting:
-                        // <devicePort>[:<baudRate>:<dataBits>:<parity>:<stopBits>:<encoding>]
-                        ((ModbusSerialSlave) modbusSlave).setPort(chunks[0]);
+                        // <devicePort>[:<baudRate>[:<dataBits>[:<parity>[:<stopBits>[:<encoding>]]]]]
+                        serialParameters.setPortName(chunks[0]);
                         if (chunks.length >= 2) {
-                            ((ModbusSerialSlave) modbusSlave).setBaud(Integer.valueOf(chunks[1]));
+                            serialParameters.setBaudRate(Integer.valueOf(chunks[1]));
                         }
                         if (chunks.length >= 3) {
-                            ((ModbusSerialSlave) modbusSlave).setDatabits(Integer.valueOf(chunks[2]));
+                            serialParameters.setDatabits(Integer.valueOf(chunks[2]));
                         }
                         if (chunks.length >= 4) {
-                            ((ModbusSerialSlave) modbusSlave).setParity(chunks[3]);
+                            serialParameters.setParity(chunks[3]);
                         }
                         if (chunks.length >= 5) {
-                            ((ModbusSerialSlave) modbusSlave).setStopbits(Double.valueOf(chunks[4]));
+                            serialParameters.setStopbits(Double.valueOf(chunks[4]));
                         }
                         if (chunks.length == 6) {
-                            ((ModbusSerialSlave) modbusSlave).setEncoding(chunks[5]);
+                            serialParameters.setEncoding(chunks[5]);
                         }
+                        ((ModbusSerialSlave) modbusSlave).setSerialParameters(serialParameters);
+                        // FIXME: we could make flow control in/out, as well as echo and timeout configurable
                     }
                 } else if ("start".equals(configKey)) {
                     modbusSlave.setStart(Integer.valueOf(value));
@@ -337,12 +383,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 }
             }
 
-            logger.debug("config looked good, proceeding with slave-connections");
-            // connect instances to modbus slaves
-            for (ModbusSlave slave : modbusSlaves.values()) {
-                slave.connect();
-            }
-
+            logger.debug("config looked good");
             setProperlyConfigured(true);
         }
     }

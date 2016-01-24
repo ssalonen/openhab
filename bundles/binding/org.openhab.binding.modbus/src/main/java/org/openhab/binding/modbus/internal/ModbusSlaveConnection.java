@@ -9,7 +9,7 @@
 package org.openhab.binding.modbus.internal;
 
 public interface ModbusSlaveConnection {
-    public boolean connect();
+    public boolean connect() throws Exception;
 
     public void resetConnection();
 
