@@ -65,7 +65,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
             "^(" + TCP_PREFIX + "|" + UDP_PREFIX + "|" + SERIAL_PREFIX + "|)\\.(.*?)\\.(" + VALID_COFIG_KEYS + ")$");
 
     /** Stores instances of all the slaves defined in cfg file */
-    private static Map<String, BaseModbusSlave> modbusSlaves = new ConcurrentHashMap<String, BaseModbusSlave>();
+    private static Map<String, ModbusSlave> modbusSlaves = new ConcurrentHashMap<String, ModbusSlave>();
 
     private static GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
 
@@ -128,7 +128,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         for (ModbusBindingProvider provider : providers) {
             if (provider.providesBindingFor(itemName)) {
                 ModbusBindingConfig config = provider.getConfig(itemName);
-                BaseModbusSlave slave = modbusSlaves.get(config.slaveName);
+                ModbusSlave slave = modbusSlaves.get(config.slaveName);
                 slave.executeCommand(command, config.readRegister, config.writeRegister);
             }
         }
@@ -251,11 +251,11 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
      */
     @Override
     protected void execute() {
-        Collection<BaseModbusSlave> slaves = new HashSet<BaseModbusSlave>();
+        Collection<ModbusSlave> slaves = new HashSet<ModbusSlave>();
         synchronized (slaves) {
             slaves.addAll(modbusSlaves.values());
         }
-        for (BaseModbusSlave slave : slaves) {
+        for (ModbusSlave slave : slaves) {
             slave.update(this);
         }
     }
@@ -308,7 +308,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
                 String slave = matcher.group(2);
 
-                BaseModbusSlave modbusSlave = modbusSlaves.get(slave);
+                ModbusSlave modbusSlave = modbusSlaves.get(slave);
                 if (modbusSlave == null) {
                     if (matcher.group(1).equals(TCP_PREFIX)) {
                         modbusSlave = new ModbusTcpSlave(slave, connectionPool);

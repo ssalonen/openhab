@@ -41,7 +41,7 @@ import net.wimpi.modbus.procimg.Register;
 import net.wimpi.modbus.util.BitVector;
 
 /**
- * ModbusSlave class is an abstract class that server as a base class for
+ * BaseModbusSlave class is an abstract class that server as a base class for
  * MobvusTCPSlave and ModbusSerialSlave instantiates physical Modbus slave.
  * It is responsible for polling data from physical device using appropriate connection.
  * It is also responsible for updating physical devices according to OpenHAB commands
@@ -49,7 +49,7 @@ import net.wimpi.modbus.util.BitVector;
  * @author Dmitry Krasnov
  * @since 1.1.0
  */
-public abstract class BaseModbusSlave {
+public abstract class BaseModbusSlave implements ModbusSlave {
 
     private static final Logger logger = LoggerFactory.getLogger(BaseModbusSlave.class);
 
@@ -119,6 +119,7 @@ public abstract class BaseModbusSlave {
      * @param readRegister data from readRegister are used to define value to write to the device
      * @param writeRegister register address to write new data to
      */
+    @Override
     public void executeCommand(Command command, int readRegister, int writeRegister) {
         if (ModbusBindingProvider.TYPE_COIL.equals(getType())) {
             setCoil(command, readRegister, writeRegister);
@@ -322,6 +323,7 @@ public abstract class BaseModbusSlave {
      *
      * @param binding ModbusBindig that stores providers information
      */
+    @Override
     public void update(ModbusBinding binding) {
 
         try {
@@ -433,50 +435,62 @@ public abstract class BaseModbusSlave {
 
     protected abstract ModbusSlaveEndpoint getEndpoint();
 
+    @Override
     public int getStart() {
         return start;
     }
 
+    @Override
     public void setStart(int start) {
         this.start = start;
     }
 
+    @Override
     public int getLength() {
         return length;
     }
 
+    @Override
     public void setLength(int length) {
         this.length = length;
     }
 
+    @Override
     public int getId() {
         return id;
     }
 
+    @Override
     public void setId(int id) {
         this.id = id;
     }
 
+    @Override
     public String getType() {
         return type;
     }
 
+    @Override
     public void setType(String type) {
         this.type = type;
     }
 
+    @Override
     public String getValueType() {
         return valueType;
     }
 
+    @Override
     public void setValueType(String valueType) {
         this.valueType = valueType;
     }
 
+    @Override
     public void setRawDataMultiplier(double value) {
         this.rawDataMultiplier = value;
     }
 
+    @Override
     public double getRawDataMultiplier() {
         return rawDataMultiplier;
     }
