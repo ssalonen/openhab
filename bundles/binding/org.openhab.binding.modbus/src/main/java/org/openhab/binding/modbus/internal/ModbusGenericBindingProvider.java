@@ -51,7 +51,7 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
      */
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.openhab.model.item.binding.BindingConfigReader#getBindingType()
      */
     @Override
@@ -97,10 +97,10 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
 
     /**
      * Checks if the bindingConfig contains a valid binding type and returns an appropriate instance.
-     * 
+     *
      * @param item
      * @param bindingConfig
-     * 
+     *
      * @throws BindingConfigParseException if bindingConfig is no valid binding type
      */
     protected ModbusBindingConfig parseBindingConfig(Item item, String bindingConfig)
@@ -110,7 +110,7 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.openhab.binding.modbus.tcp.master.ModbusBindingProvider#getConfig(java.lang.String)
      */
     @Override
@@ -120,7 +120,7 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
 
     /**
      * ModbusBindingConfig stores configuration of the item bound to Modbus
-     * 
+     *
      * @author dbkrasn
      * @since 1.1.0
      */
@@ -155,11 +155,13 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
         /**
          * Calculates new item state based on the new boolean value, current item state and item class
          * Used with item bound to "coil" type slaves
-         * 
+         *
+         * Returns UnDefType.UNDEF for Number and other "uncompatible" item types
+         *
          * @param b new boolean value
          * @param c class of the current item state
          * @param itemClass class of the item
-         * 
+         *
          * @return new item state
          */
         protected State translateBoolean2State(boolean b) {
@@ -180,13 +182,14 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
             } else if (c == OpenClosedType.class && itemClass == ContactItem.class) {
                 return b ? OpenClosedType.OPEN : OpenClosedType.CLOSED;
             } else {
+                // Number items
                 return UnDefType.UNDEF;
             }
         }
 
         /**
          * Constructor for config object
-         * 
+         *
          * @param item
          * @param config
          * @throws BindingConfigParseException if
@@ -213,7 +216,7 @@ public class ModbusGenericBindingProvider extends AbstractGenericBindingProvider
 
         /**
          * Parses register reference string and assigns values to readRegister and writeRegister
-         * 
+         *
          * @param item
          * @throws BindingConfigParseException if register description is invalid
          */

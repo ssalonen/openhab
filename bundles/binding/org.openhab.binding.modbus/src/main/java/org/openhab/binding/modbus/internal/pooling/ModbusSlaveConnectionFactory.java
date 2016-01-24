@@ -6,13 +6,14 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  */
-package org.openhab.binding.modbus.internal;
+package org.openhab.binding.modbus.internal.pooling;
 
-public interface ModbusSlaveConnection {
-    public boolean connect();
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 
-    public void resetConnection();
-
-    public boolean isConnected();
+/**
+ * Factory for ModbusSlaveConnection objects using endpoint definition.
+ *
+ */
+public interface ModbusSlaveConnectionFactory extends ModbusSlaveEndpointVisitor<ModbusSlaveConnection> {
 
 }
