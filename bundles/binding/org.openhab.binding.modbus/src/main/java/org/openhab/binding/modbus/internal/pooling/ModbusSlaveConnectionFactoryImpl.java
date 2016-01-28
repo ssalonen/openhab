@@ -79,12 +79,19 @@ public class ModbusSlaveConnectionFactoryImpl
         if (obj.getObject() == null) {
             return;
         }
+        Exception exc = null;
         try {
             obj.getObject().connect();
         } catch (Exception e) {
-            logger.trace("Error connecting connection {} for endpoint {}: {}", obj.getObject(), key, e.getMessage());
+            exc = e;
+            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), key, e);
         }
-        logger.trace("Activated connection {} for endpoint {}", obj.getObject(), key);
+        if (exc != null) {
+            logger.trace("Activated connection {} for endpoint {} -- but error occurred with connect()",
+                    obj.getObject(), key);
+        } else {
+            logger.trace("Activated connection {} for endpoint {} -- connect() ok", obj.getObject(), key);
+        }
     }
 
     @Override

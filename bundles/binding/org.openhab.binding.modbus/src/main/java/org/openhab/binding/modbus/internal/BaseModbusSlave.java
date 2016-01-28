@@ -410,7 +410,7 @@ public abstract class BaseModbusSlave implements ModbusSlave {
             try {
                 transaction.execute();
             } catch (Exception e) {
-                logger.debug("ModbusSlave ({}): Error getting modbus data for request {}. Error: {}", name, request,
+                logger.error("ModbusSlave ({}): Error getting modbus data for request {}. Error: {}", name, request,
                         e.getMessage());
                 invalidate(endpoint, connection);
                 // Invalidated connections should not be returned

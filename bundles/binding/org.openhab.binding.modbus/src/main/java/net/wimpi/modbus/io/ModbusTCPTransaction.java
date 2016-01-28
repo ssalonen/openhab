@@ -16,6 +16,9 @@
 
 package net.wimpi.modbus.io;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.ModbusException;
 import net.wimpi.modbus.ModbusIOException;
@@ -35,6 +38,8 @@ import net.wimpi.modbus.util.Mutex;
  * @version @version@ (@date@)
  */
 public class ModbusTCPTransaction implements ModbusTransaction {
+
+    private static final Logger logger = LoggerFactory.getLogger(ModbusSerialTransaction.class);
 
     // class attributes
     private static AtomicCounter c_TransactionID = new AtomicCounter(Modbus.DEFAULT_TRANSACTION_ID);
@@ -198,13 +203,24 @@ public class ModbusTCPTransaction implements ModbusTransaction {
                     m_Response = m_IO.readResponse();
                     break;
                 } catch (ModbusIOException ex) {
+                    logger.error("execute try {} error: {}. Request: {}. Address: {}:{}", retryCounter + 1,
+                            ex.getMessage(), m_Request, m_Connection.getAddress(), m_Connection.getPort());
                     if (retryCounter == m_Retries) {
+                        logger.error(
+                                "execute try {} reached max tries {} error, throwing last error: {}. Request: {}.  Address: {}:{}",
+                                retryCounter + 1, m_Retries + 1, ex.getMessage(), m_Request, m_Connection.getAddress(),
+                                m_Connection.getPort());
                         throw new ModbusIOException("Executing transaction failed (tried " + m_Retries + " times)");
                     } else {
                         retryCounter++;
                         continue;
                     }
                 }
+            }
+
+            if (retryCounter > 0) {
+                logger.debug("execute eventually succeeded with {} tries. Request: {}. Address: {}:{}",
+                        retryCounter + 1, m_Request, m_Connection.getAddress(), m_Connection.getPort());
             }
 
             // 5. deal with "application level" exceptions
