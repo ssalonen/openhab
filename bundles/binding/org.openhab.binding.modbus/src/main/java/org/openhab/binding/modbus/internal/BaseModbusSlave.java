@@ -263,6 +263,8 @@ public abstract class BaseModbusSlave implements ModbusSlave {
                 logger.error("ModbusSlave ({}): error when executing write request ({}): {}", name, request,
                         e.getMessage());
                 invalidate(endpoint, connection);
+                // Invalidated connections should not be returned
+                connection = null;
                 return;
             }
         } finally {
@@ -411,6 +413,8 @@ public abstract class BaseModbusSlave implements ModbusSlave {
                 logger.debug("ModbusSlave ({}): Error getting modbus data for request {}. Error: {}", name, request,
                         e.getMessage());
                 invalidate(endpoint, connection);
+                // Invalidated connections should not be returned
+                connection = null;
                 return null;
             }
 
