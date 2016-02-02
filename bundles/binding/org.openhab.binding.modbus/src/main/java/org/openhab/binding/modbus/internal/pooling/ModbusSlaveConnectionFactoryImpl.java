@@ -7,7 +7,6 @@ import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
-import org.openhab.binding.modbus.internal.ModbusTcpSlave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +17,7 @@ import net.wimpi.modbus.net.UDPMasterConnection;
 public class ModbusSlaveConnectionFactoryImpl
         extends BaseKeyedPooledObjectFactory<ModbusSlaveEndpoint, ModbusSlaveConnection> {
 
-    private static final Logger logger = LoggerFactory.getLogger(ModbusTcpSlave.class);
+    private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
