@@ -35,7 +35,7 @@ public class ModbusSlaveConnectionFactoryImpl
             @Override
             public ModbusSlaveConnection visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
                 SerialConnection connection = new SerialConnection(modbusSerialSlavePoolingKey.getSerialParameters());
-                logger.trace("Created connection for endpoint {}", modbusSerialSlavePoolingKey);
+                logger.trace("Created connection {} for endpoint {}", connection, modbusSerialSlavePoolingKey);
                 return connection;
             }
 
@@ -46,7 +46,7 @@ public class ModbusSlaveConnectionFactoryImpl
                     return null;
                 }
                 TCPMasterConnection connection = new TCPMasterConnection(address, key.getPort());
-                logger.trace("Created connection for endpoint {}", key);
+                logger.trace("Created connection {} for endpoint {}", connection, key);
                 return connection;
             }
 
@@ -57,7 +57,7 @@ public class ModbusSlaveConnectionFactoryImpl
                     return null;
                 }
                 UDPMasterConnection connection = new UDPMasterConnection(address, key.getPort());
-                logger.trace("Created connection for endpoint {}", key);
+                logger.trace("Created connection {} for endpoint {}", connection, key);
                 return connection;
             }
         });
@@ -86,8 +86,7 @@ public class ModbusSlaveConnectionFactoryImpl
             logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), key, e);
         }
         if (exc != null) {
-            logger.trace("Activated connection {} for endpoint {} -- but error occurred with connect()",
-                    obj.getObject(), key);
+            logger.trace("Activating connection {} for endpoint {} failed", obj.getObject(), key);
         } else {
             logger.trace("Activated connection {} for endpoint {} -- connect() ok", obj.getObject(), key);
         }
@@ -98,14 +97,15 @@ public class ModbusSlaveConnectionFactoryImpl
         if (obj.getObject() == null) {
             return;
         }
-        logger.trace("Passivating connection {} for endpoint {}", obj.getObject(), endpoint);
+        logger.trace("Passivating connection {} for endpoint {}...", obj.getObject(), endpoint);
         closeIfNotSerialEndpoint(endpoint, obj);
+        logger.trace("...Passivated connection {} for endpoint {}", obj.getObject(), endpoint);
     }
 
     @Override
     public boolean validateObject(ModbusSlaveEndpoint key, PooledObject<ModbusSlaveConnection> p) {
         boolean valid = p.getObject() != null && p.getObject().isConnected();
-        logger.trace("Validated endpoint {} connection {} -> {}", key, p.getObject(), valid);
+        logger.trace("Validating endpoint {} connection {} -> {}", key, p.getObject(), valid);
         return valid;
     }
 
@@ -114,6 +114,8 @@ public class ModbusSlaveConnectionFactoryImpl
         endpoint.accept(new ModbusSlaveConnectionVisitor<Object>() {
             @Override
             public Object visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
+                logger.trace("Not reseting connection {} for endpoint {} since we have Serial endpoint",
+                        finalObj.getObject(), modbusSerialSlavePoolingKey);
                 return null;
             }
 
