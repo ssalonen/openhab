@@ -2,12 +2,19 @@ package org.openhab.binding.modbus.internal.pooling;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
 public abstract class ModbusIPSlaveEndpoint implements ModbusSlaveEndpoint {
 
     private String address;
     private int port;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     public ModbusIPSlaveEndpoint(String address, int port) {
         this.address = address;
@@ -33,7 +40,7 @@ public abstract class ModbusIPSlaveEndpoint implements ModbusSlaveEndpoint {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("address", address).append("port", port).toString();
+        return new ToStringBuilder(this, toStringStyle).append("address", address).append("port", port).toString();
     }
 
     @Override

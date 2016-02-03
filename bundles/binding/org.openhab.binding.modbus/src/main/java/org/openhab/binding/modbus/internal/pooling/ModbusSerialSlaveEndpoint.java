@@ -2,6 +2,7 @@ package org.openhab.binding.modbus.internal.pooling;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 
@@ -10,6 +11,11 @@ import net.wimpi.modbus.util.SerialParameters;
 public class ModbusSerialSlaveEndpoint implements ModbusSlaveEndpoint {
 
     private SerialParameters serialParameters;
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     public ModbusSerialSlaveEndpoint(SerialParameters serialParameters) {
         this.serialParameters = serialParameters;
@@ -36,7 +42,7 @@ public class ModbusSerialSlaveEndpoint implements ModbusSlaveEndpoint {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("serialParameters", serialParameters).toString();
+        return new ToStringBuilder(this, toStringStyle).append("serialParameters", serialParameters).toString();
     }
 
     @Override

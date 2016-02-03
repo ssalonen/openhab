@@ -20,6 +20,7 @@ import java.util.Properties;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
 import gnu.io.SerialPort;
@@ -46,6 +47,12 @@ public class SerialParameters {
     private String m_Encoding;
     private boolean m_Echo;
     private int m_ReceiveTimeout;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     /**
      * Constructs a new <tt>SerialParameters</tt> instance with
@@ -87,7 +94,7 @@ public class SerialParameters {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("portName", m_PortName).append("baudRate", m_BaudRate)
+        return new ToStringBuilder(this, toStringStyle).append("portName", m_PortName).append("baudRate", m_BaudRate)
                 .append("flowControlIn", getFlowControlInString()).append("flowControlOut", getFlowControlOutString())
                 .append("databits", getDatabitsString()).append("stopbits", getStopbitsString())
                 .append("parity", getParityString()).append("encoding", m_Encoding).append("echo", m_Echo)

@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 
+import org.apache.commons.lang.builder.StandardToStringStyle;
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,12 @@ public class TCPMasterConnection implements ModbusSlaveConnection {
 
     // private int m_Retries = Modbus.DEFAULT_RETRIES;
     private ModbusTCPTransport m_ModbusTransport;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     /**
      * Constructs a <tt>TCPMasterConnection</tt> instance
@@ -209,6 +217,11 @@ public class TCPMasterConnection implements ModbusSlaveConnection {
     @Override
     public void resetConnection() {
         close();
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, toStringStyle).append("socket", m_Socket).toString();
     }
 
 }// class TCPMasterConnection

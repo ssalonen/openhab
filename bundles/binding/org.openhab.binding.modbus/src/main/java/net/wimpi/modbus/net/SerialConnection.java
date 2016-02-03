@@ -22,6 +22,8 @@ import java.io.InputStream;
 import java.util.TooManyListenersException;
 
 import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang.builder.StandardToStringStyle;
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +60,12 @@ public class SerialConnection implements SerialPortEventListener, ModbusSlaveCon
     private SerialPort m_SerialPort;
     private boolean m_Open;
     private InputStream m_SerialIn;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     /**
      * Creates a SerialConnection object and initializes variables passed in
@@ -324,6 +332,12 @@ public class SerialConnection implements SerialPortEventListener, ModbusSlaveCon
     @Override
     public boolean isConnected() {
         return isOpen();
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, toStringStyle).append("portName", m_Parameters.getPortName())
+                .append("port", m_SerialPort).toString();
     }
 
 }// class SerialConnection

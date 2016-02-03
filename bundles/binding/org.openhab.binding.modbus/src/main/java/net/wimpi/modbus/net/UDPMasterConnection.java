@@ -18,6 +18,8 @@ package net.wimpi.modbus.net;
 
 import java.net.InetAddress;
 
+import org.apache.commons.lang.builder.StandardToStringStyle;
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 
 import net.wimpi.modbus.Modbus;
@@ -38,6 +40,12 @@ public class UDPMasterConnection implements ModbusSlaveConnection {
 
     private InetAddress m_Address;
     private int m_Port = Modbus.DEFAULT_PORT;
+
+    private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
+
+    static {
+        toStringStyle.setUseShortClassName(true);
+    }
 
     /**
      * Constructs a <tt>UDPMasterConnection</tt> instance
@@ -182,6 +190,11 @@ public class UDPMasterConnection implements ModbusSlaveConnection {
     @Override
     public void resetConnection() {
         close();
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, toStringStyle).append("terminal", m_Terminal).toString();
     }
 
 }// class UDPMasterConnection
