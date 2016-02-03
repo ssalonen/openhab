@@ -191,9 +191,9 @@ public class ModbusTCPTransaction implements ModbusTransaction {
 
             // 4. Retry transaction m_Retries times, in case of
             // I/O Exception problems.
-            int retryCounter = 0;
+            int tries = 0;
 
-            while (retryCounter <= m_Retries) {
+            do {
                 try {
                     // toggle and set the id
                     m_Request.setTransactionID(c_TransactionID.increment());
@@ -203,24 +203,22 @@ public class ModbusTCPTransaction implements ModbusTransaction {
                     m_Response = m_IO.readResponse();
                     break;
                 } catch (ModbusIOException ex) {
-                    logger.error("execute try {} error: {}. Request: {}. Address: {}:{}", retryCounter + 1,
+                    tries++;
+                    logger.error("execute try {}/{} error: {}. Request: {}. Address: {}:{}", tries, m_Retries,
                             ex.getMessage(), m_Request, m_Connection.getAddress(), m_Connection.getPort());
-                    if (retryCounter == m_Retries) {
+                    if (tries >= m_Retries) {
                         logger.error(
-                                "execute try {} reached max tries {} error, throwing last error: {}. Request: {}.  Address: {}:{}",
-                                retryCounter + 1, m_Retries + 1, ex.getMessage(), m_Request, m_Connection.getAddress(),
+                                "execute reached max tries {}, throwing last error: {}. Request: {}. Address: {}:{}",
+                                m_Retries, ex.getMessage(), m_Request, m_Connection.getAddress(),
                                 m_Connection.getPort());
                         throw new ModbusIOException("Executing transaction failed (tried " + m_Retries + " times)");
-                    } else {
-                        retryCounter++;
-                        continue;
                     }
                 }
-            }
+            } while (true);
 
-            if (retryCounter > 0) {
-                logger.debug("execute eventually succeeded with {} tries. Request: {}. Address: {}:{}",
-                        retryCounter + 1, m_Request, m_Connection.getAddress(), m_Connection.getPort());
+            if (tries > 0) {
+                logger.debug("execute eventually succeeded with {} re-tries. Request: {}. Address: {}:{}", tries,
+                        m_Request, m_Connection.getAddress(), m_Connection.getPort());
             }
 
             // 5. deal with "application level" exceptions

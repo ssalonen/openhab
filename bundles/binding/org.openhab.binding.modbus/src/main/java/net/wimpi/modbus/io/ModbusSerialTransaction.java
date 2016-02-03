@@ -175,7 +175,6 @@ public class ModbusSerialTransaction implements ModbusTransaction {
             // while holding the lock on the IO object
             synchronized (m_IO) {
                 int tries = 0;
-                boolean finished = false;
 
                 // toggle the id
                 m_Request.setTransactionID(c_TransactionID.increment());
@@ -193,20 +192,21 @@ public class ModbusSerialTransaction implements ModbusTransaction {
                         m_IO.writeMessage(m_Request);
                         // read response message
                         m_Response = m_IO.readResponse();
-                        finished = true;
+                        break;
                     } catch (ModbusIOException e) {
-                        logger.error("execute try {} error: {}. Request: {}. Serial parameters: {}", tries,
-                                e.getMessage(), m_Request, m_SerialCon.getParameters());
-                        if (++tries >= m_Retries) {
+                        tries++;
+                        logger.error("execute try {}/{} error: {}. Request: {}. Serial parameters: {}", tries,
+                                m_Retries, e.getMessage(), m_Request, m_SerialCon.getParameters());
+                        if (tries >= m_Retries) {
                             logger.error(
-                                    "execute try {} reached max tries {} error, throwing last error: {}. Request: {}. Serial parameters: {}",
-                                    tries, m_Retries, e.getMessage(), m_Request, m_SerialCon.getParameters());
+                                    "execute reached max tries {}, throwing last error: {}. Request: {}. Serial parameters: {}",
+                                    m_Retries, e.getMessage(), m_Request, m_SerialCon.getParameters());
                             throw e;
                         }
                     }
-                } while (!finished);
+                } while (true);
                 if (tries > 0) {
-                    logger.debug("execute eventually succeeded with {} tries. Request: {}. Serial parameters: {}",
+                    logger.debug("execute eventually succeeded with {} re-tries. Request: {}. Serial parameters: {}",
                             tries, m_Request, m_SerialCon.getParameters());
                 }
             }
