@@ -14,11 +14,15 @@ import java.util.Collection;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.collections.IteratorUtils;
+import org.apache.commons.collections.ResettableIterator;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.pool2.KeyedObjectPool;
@@ -328,35 +332,44 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
                 if ("connection".equals(configKey)) {
                     String[] chunks = value.split(":");
+                    Iterator<String> settingIterator = stringArrayIterator(chunks);
                     if (modbusSlave instanceof ModbusIPSlave) {
                         // expecting:
                         // <devicePort>:<port>
-                        ((ModbusIPSlave) modbusSlave).setHost(chunks[0]);
-                        if (chunks.length == 2) {
-                            ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(chunks[1]));
+                        ((ModbusIPSlave) modbusSlave).setHost(settingIterator.next());
+                        if (settingIterator.hasNext()) {
+                            ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(settingIterator.next()));
+                        }
+                        if (settingIterator.hasNext()) {
+                            throw new ConfigurationException(key,
+                                    "Has too many colon separated connection settings for a tcp/udp modbus slave. "
+                                            + "Expecting at most 2 parameters: hostname (mandatory) and optionally port number.");
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
                         SerialParameters serialParameters = new SerialParameters();
-                        // expecting:
-                        // <devicePort>[:<baudRate>[:<dataBits>[:<parity>[:<stopBits>[:<encoding>]]]]]
-                        serialParameters.setPortName(chunks[0]);
-                        if (chunks.length >= 2) {
-                            serialParameters.setBaudRate(Integer.valueOf(chunks[1]));
+                        serialParameters.setPortName(settingIterator.next());
+                        try {
+                            serialParameters.setBaudRate(settingIterator.next());
+                            serialParameters.setDatabits(settingIterator.next());
+                            serialParameters.setParity(settingIterator.next());
+                            serialParameters.setStopbits(settingIterator.next());
+                            serialParameters.setEncoding(settingIterator.next());
+                            serialParameters.setReceiveTimeout(settingIterator.next());
+                            serialParameters.setFlowControlIn(settingIterator.next());
+                            serialParameters.setFlowControlOut(settingIterator.next());
+                        } catch (NoSuchElementException e) {
+                            // Some of the optional parameters are missing -- it's ok!
                         }
-                        if (chunks.length >= 3) {
-                            serialParameters.setDatabits(Integer.valueOf(chunks[2]));
+                        if (settingIterator.hasNext()) {
+                            throw new ConfigurationException(key,
+                                    String.format(
+                                            "Has too many colon separated connection settings for a serial modbus slave. "
+                                                    + "Expecting at most 9 parameters (got %d): devicePort (mandatory), and 0 or more optional parameters (in this order): "
+                                                    + "baudRate, dataBits, parity, stopBits, encoding, timeout, flowControlIn, flowControlOut",
+                                            chunks.length));
                         }
-                        if (chunks.length >= 4) {
-                            serialParameters.setParity(chunks[3]);
-                        }
-                        if (chunks.length >= 5) {
-                            serialParameters.setStopbits(Double.valueOf(chunks[4]));
-                        }
-                        if (chunks.length == 6) {
-                            serialParameters.setEncoding(chunks[5]);
-                        }
+
                         ((ModbusSerialSlave) modbusSlave).setSerialParameters(serialParameters);
-                        // FIXME: we could make flow control in/out, as well as echo and timeout configurable
                     }
                 } else if ("start".equals(configKey)) {
                     modbusSlave.setStart(Integer.valueOf(value));
@@ -386,6 +399,26 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
             logger.debug("config looked good");
             setProperlyConfigured(true);
         }
+
+    }
+
+    private static Iterator<String> stringArrayIterator(final String[] chunks) {
+        Iterator<String> settingIterator = new Iterator<String>() {
+
+            private ResettableIterator inner = IteratorUtils.arrayIterator(chunks);
+
+            @Override
+            public String next() {
+                return (String) inner.next();
+            }
+
+            @Override
+            public boolean hasNext() {
+                return inner.hasNext();
+            }
+
+        };
+        return settingIterator;
     }
 
 }

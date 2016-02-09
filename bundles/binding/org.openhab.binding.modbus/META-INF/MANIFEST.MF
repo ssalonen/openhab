@@ -6,6 +6,7 @@ Bundle-Version: 1.9.0.qualifier
 Bundle-Activator: org.openhab.binding.modbus.internal.ModbusActivator
 Bundle-Vendor: openHAB.org
 Import-Package: org.apache.commons.collections,
+ org.apache.commons.collections.iterators,
  org.apache.commons.collections.keyvalue,
  org.apache.commons.io,
  org.apache.commons.lang,
