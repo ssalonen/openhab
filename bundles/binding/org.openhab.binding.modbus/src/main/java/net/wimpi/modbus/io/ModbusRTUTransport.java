@@ -151,7 +151,7 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
                                     + ModbusUtil.toHex(m_ByteIn.getBuffer(), 0, dlength));
                         }
                     } else {
-                        throw new IOException("Error reading response");
+                        throw new IOException("Error reading response (EOF)");
                     }
 
                     // read response
