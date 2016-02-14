@@ -157,7 +157,7 @@ public class ModbusASCIITransport extends ModbusSerialTransport {
         boolean done = false;
         ModbusResponse response = null;
         int in = -1;
-
+        setReceiveThreshold(1);
         try {
             do {
                 // 1. Skip to FRAME_START
@@ -209,6 +209,8 @@ public class ModbusASCIITransport extends ModbusSerialTransport {
             final String errMsg = "I/O exception - failed to read";
             logger.debug("{}: {}", errMsg, ex.getMessage());
             throw new ModbusIOException("readResponse " + errMsg);
+        } finally {
+            m_CommPort.disableReceiveThreshold();
         }
     }// readResponse
 

@@ -156,7 +156,7 @@ public class ModbusBINTransport extends ModbusSerialTransport {
         boolean done = false;
         ModbusResponse response = null;
         int in = -1;
-
+        setReceiveThreshold(1);
         try {
             do {
                 // 1. Skip to FRAME_START
@@ -203,6 +203,8 @@ public class ModbusBINTransport extends ModbusSerialTransport {
             final String errMsg = "failed to read";
             logger.debug("{}: {}", errMsg, ex.getMessage());
             throw new ModbusIOException("I/O exception - " + errMsg);
+        } finally {
+            m_CommPort.disableReceiveThreshold();
         }
     }// readResponse
 
