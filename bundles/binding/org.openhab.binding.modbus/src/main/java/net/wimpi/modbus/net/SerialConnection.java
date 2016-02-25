@@ -148,7 +148,7 @@ public class SerialConnection implements SerialPortEventListener, ModbusSlaveCon
             throw e;
         }
 
-        setReceiveTimeout(m_Parameters.getReceiveTimeout());
+        setReceiveTimeout(m_Parameters.getReceiveTimeoutMillis());
 
         if (Modbus.SERIAL_ENCODING_ASCII.equals(m_Parameters.getEncoding())) {
             m_Transport = new ModbusASCIITransport();

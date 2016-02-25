@@ -36,6 +36,8 @@ import net.wimpi.modbus.Modbus;
  */
 public class SerialParameters {
 
+    public static int DEFAULT_RECEIVE_TIMEOUT_MILLIS = 500; // 0.5 secs
+
     // instance attributes
     private String m_PortName;
     private int m_BaudRate;
@@ -46,7 +48,7 @@ public class SerialParameters {
     private int m_Parity;
     private String m_Encoding;
     private boolean m_Echo;
-    private int m_ReceiveTimeout;
+    private int m_ReceiveTimeoutMillis;
 
     private static StandardToStringStyle toStringStyle = new StandardToStringStyle();
 
@@ -60,7 +62,8 @@ public class SerialParameters {
      */
     public SerialParameters() {
         this("", 9600, SerialPort.FLOWCONTROL_NONE, SerialPort.FLOWCONTROL_NONE, SerialPort.DATABITS_8,
-                SerialPort.STOPBITS_1, SerialPort.PARITY_NONE, Modbus.DEFAULT_SERIAL_ENCODING, false, 500);
+                SerialPort.STOPBITS_1, SerialPort.PARITY_NONE, Modbus.DEFAULT_SERIAL_ENCODING, false,
+                DEFAULT_RECEIVE_TIMEOUT_MILLIS);
     }// constructor
 
     /**
@@ -76,10 +79,10 @@ public class SerialParameters {
      * @param encoding
      * @param parity The type of parity.
      * @param echo Flag for setting the RS485 echo mode.
-     * @param timeout
+     * @param receiveTimeoutMillis timeout in milliseconds for read operations
      */
     public SerialParameters(String portName, int baudRate, int flowControlIn, int flowControlOut, int databits,
-            int stopbits, int parity, String encoding, boolean echo, int timeout) {
+            int stopbits, int parity, String encoding, boolean echo, int receiveTimeoutMillis) {
         setPortName(portName);
         setBaudRate(baudRate);
         setFlowControlIn(flowControlIn);
@@ -89,7 +92,7 @@ public class SerialParameters {
         setParity(parity);
         setEncoding(encoding);
         setEcho(echo);
-        setReceiveTimeout(timeout);
+        setReceiveTimeoutMillis(receiveTimeoutMillis);
     }// constructor
 
     @Override
@@ -98,14 +101,14 @@ public class SerialParameters {
                 .append("flowControlIn", getFlowControlInString()).append("flowControlOut", getFlowControlOutString())
                 .append("databits", getDatabitsString()).append("stopbits", getStopbitsString())
                 .append("parity", getParityString()).append("encoding", m_Encoding).append("echo", m_Echo)
-                .append("receiveTimeout", m_ReceiveTimeout).toString();
+                .append("receiveTimeoutMillis", m_ReceiveTimeoutMillis).toString();
     }
 
     @Override
     public int hashCode() {
         return new HashCodeBuilder(7, 51).append(m_PortName).append(m_BaudRate).append(m_FlowControlIn)
                 .append(m_FlowControlOut).append(m_Databits).append(m_Stopbits).append(m_Parity).append(m_Encoding)
-                .append(m_Echo).append(m_ReceiveTimeout).toHashCode();
+                .append(m_Echo).append(m_ReceiveTimeoutMillis).toHashCode();
     }
 
     @Override
@@ -124,7 +127,7 @@ public class SerialParameters {
                 .append(m_FlowControlIn, rhs.m_FlowControlIn).append(m_FlowControlOut, rhs.m_FlowControlOut)
                 .append(m_Databits, rhs.m_Databits).append(m_Stopbits, rhs.m_Stopbits).append(m_Parity, rhs.m_Parity)
                 .append(m_Encoding, rhs.m_Encoding).append(m_Echo, rhs.m_Echo)
-                .append(m_ReceiveTimeout, rhs.m_ReceiveTimeout).isEquals();
+                .append(m_ReceiveTimeoutMillis, rhs.m_ReceiveTimeoutMillis).isEquals();
     }
 
     /**
@@ -148,7 +151,7 @@ public class SerialParameters {
         setStopbits(props.getProperty(prefix + "stopbits", "" + SerialPort.STOPBITS_1));
         setEncoding(props.getProperty(prefix + "encoding", Modbus.DEFAULT_SERIAL_ENCODING));
         setEcho("true".equals(props.getProperty(prefix + "echo")));
-        setReceiveTimeout(props.getProperty(prefix + "timeout", "" + 500));
+        setReceiveTimeoutMillis(props.getProperty(prefix + "timeout", "" + 500));
     }// constructor
 
     /**
@@ -561,8 +564,8 @@ public class SerialParameters {
      *
      * @return the timeout in milliseconds.
      */
-    public int getReceiveTimeout() {
-        return m_ReceiveTimeout;
+    public int getReceiveTimeoutMillis() {
+        return m_ReceiveTimeoutMillis;
     }// getReceiveTimeout
 
     /**
@@ -570,12 +573,12 @@ public class SerialParameters {
      *
      * @param receiveTimeout the receiveTimeout in milliseconds.
      */
-    public void setReceiveTimeout(int receiveTimeout) {
+    public void setReceiveTimeoutMillis(int receiveTimeout) {
         if (!SerialParameterValidator.isReceiveTimeoutValid(receiveTimeout)) {
             throw new IllegalArgumentException("negative values like '" + receiveTimeout + "' invalid as timeout");
         }
 
-        m_ReceiveTimeout = receiveTimeout;
+        m_ReceiveTimeoutMillis = receiveTimeout;
     }// setReceiveTimeout
 
     /**
@@ -584,8 +587,8 @@ public class SerialParameters {
      *
      * @param str the timeout as String.
      */
-    public void setReceiveTimeout(String str) {
-        setReceiveTimeout(Integer.parseInt(str));
+    public void setReceiveTimeoutMillis(String str) {
+        setReceiveTimeoutMillis(Integer.parseInt(str));
     }// setReceiveTimeout
 
     /**
