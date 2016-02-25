@@ -8,6 +8,7 @@
  */
 package org.openhab.binding.modbus.internal;
 
+import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.core.types.Command;
 
 public interface ModbusSlave {
@@ -38,4 +39,10 @@ public interface ModbusSlave {
     public String getType();
 
     public void setType(String value);
+
+    public ModbusSlaveEndpoint getEndpoint();
+
+    public long getRetryDelayMillis();
+
+    public void setRetryDelayMillis(long retryDelayMillis);
 }

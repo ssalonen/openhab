@@ -55,6 +55,8 @@ public class ModbusTCPTransaction implements ModbusTransaction {
 
     private Mutex m_TransactionLock = new Mutex();
 
+    private long m_RetryDelayMillis;
+
     /**
      * Constructs a new <tt>ModbusTCPTransaction</tt>
      * instance.
@@ -213,11 +215,12 @@ public class ModbusTCPTransaction implements ModbusTransaction {
                                 m_Connection.getPort());
                         throw new ModbusIOException("Executing transaction failed (tried " + m_Retries + " times)");
                     }
+                    Thread.sleep(m_RetryDelayMillis);
                 }
             } while (true);
 
             if (tries > 0) {
-                logger.debug("execute eventually succeeded with {} re-tries. Request: {}. Address: {}:{}", tries,
+                logger.info("execute eventually succeeded with {} re-tries. Request: {}. Address: {}:{}", tries,
                         m_Request, m_Connection.getAddress(), m_Connection.getPort());
             }
 
@@ -266,5 +269,15 @@ public class ModbusTCPTransaction implements ModbusTransaction {
      */
     protected void checkValidity() throws ModbusException {
     }// checkValidity
+
+    @Override
+    public long getRetryDelayMillis() {
+        return m_RetryDelayMillis;
+    }
+
+    @Override
+    public void setRetryDelayMillis(long retryDelayMillis) {
+        this.m_RetryDelayMillis = retryDelayMillis;
+    }
 
 }// class ModbusTCPTransaction

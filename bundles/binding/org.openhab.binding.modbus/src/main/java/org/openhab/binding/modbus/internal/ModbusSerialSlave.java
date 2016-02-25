@@ -67,7 +67,7 @@ public class ModbusSerialSlave extends BaseModbusSlave {
     }
 
     @Override
-    protected ModbusSlaveEndpoint getEndpoint() {
+    public ModbusSlaveEndpoint getEndpoint() {
         return new ModbusSerialSlaveEndpoint(serialParameters);
     }
 

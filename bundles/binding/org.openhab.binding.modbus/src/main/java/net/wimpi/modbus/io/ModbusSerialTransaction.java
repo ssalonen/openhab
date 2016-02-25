@@ -49,6 +49,7 @@ public class ModbusSerialTransaction implements ModbusTransaction {
     private ModbusResponse m_Response;
     private boolean m_ValidityCheck = Modbus.DEFAULT_VALIDITYCHECK;
     private int m_Retries = Modbus.DEFAULT_RETRIES;
+    private long m_RetryDelayMillis;
     private int m_TransDelayMS = Modbus.DEFAULT_TRANSMIT_DELAY;
     private SerialConnection m_SerialCon;
 
@@ -203,10 +204,11 @@ public class ModbusSerialTransaction implements ModbusTransaction {
                                     m_Retries, e.getMessage(), m_Request, m_SerialCon.getParameters());
                             throw e;
                         }
+                        Thread.sleep(m_RetryDelayMillis);
                     }
                 } while (true);
                 if (tries > 0) {
-                    logger.debug("execute eventually succeeded with {} re-tries. Request: {}. Serial parameters: {}",
+                    logger.info("execute eventually succeeded with {} re-tries. Request: {}. Serial parameters: {}",
                             tries, m_Request, m_SerialCon.getParameters());
                 }
             }
@@ -247,5 +249,15 @@ public class ModbusSerialTransaction implements ModbusTransaction {
      */
     protected void checkValidity() throws ModbusException {
     }// checkValidity
+
+    @Override
+    public long getRetryDelayMillis() {
+        return m_RetryDelayMillis;
+    }
+
+    @Override
+    public void setRetryDelayMillis(long retryDelayMillis) {
+        this.m_RetryDelayMillis = retryDelayMillis;
+    }
 
 }// class ModbusSerialTransaction

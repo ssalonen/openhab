@@ -2,6 +2,8 @@ package org.openhab.binding.modbus.internal.pooling;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -18,6 +20,9 @@ public class ModbusSlaveConnectionFactoryImpl
         extends BaseKeyedPooledObjectFactory<ModbusSlaveEndpoint, ModbusSlaveConnection> {
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
+    private Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs;
+    private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new HashMap<ModbusSlaveEndpoint, Long>();
+    private Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new HashMap<ModbusSlaveEndpoint, Long>();
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
@@ -74,21 +79,28 @@ public class ModbusSlaveConnectionFactoryImpl
     }
 
     @Override
-    public void activateObject(ModbusSlaveEndpoint key, PooledObject<ModbusSlaveConnection> obj) throws Exception {
+    public void activateObject(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj) throws Exception {
         if (obj.getObject() == null) {
             return;
         }
-        Exception exc = null;
         try {
-            obj.getObject().connect();
+            ModbusSlaveConnection connection = obj.getObject();
+            EndpointPoolConfiguration config = endpointPoolConfigs.get(endpoint);
+
+            if (connection.isConnected()) {
+                if (config != null) {
+                    long waited = waitAtleast(lastBorrowMillis.get(endpoint), config.getInterBorrowDelayMillis());
+                    logger.trace(
+                            "Waited {}ms (interBorrowDelayMillis {}ms) before giving returning connection {} for endpoint {}, to allow delay between transactions.",
+                            waited, config.getInterBorrowDelayMillis(), obj.getObject(), endpoint);
+                }
+                return;
+            }
+            // invariant: !connection.isConnected()
+            tryConnectDisconnected(endpoint, obj, connection, config);
+            lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
-            exc = e;
-            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), key, e);
-        }
-        if (exc != null) {
-            logger.trace("Activating connection {} for endpoint {} failed", obj.getObject(), key);
-        } else {
-            logger.trace("Activated connection {} for endpoint {} -- connect() ok", obj.getObject(), key);
+            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), endpoint, e);
         }
     }
 
@@ -134,6 +146,62 @@ public class ModbusSlaveConnectionFactoryImpl
             }
 
         });
+    }
+
+    public Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> getEndpointPoolConfigs() {
+        return endpointPoolConfigs;
+    }
+
+    public void setEndpointPoolConfigs(Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs) {
+        this.endpointPoolConfigs = endpointPoolConfigs;
+    }
+
+    private void tryConnectDisconnected(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
+            ModbusSlaveConnection connection, EndpointPoolConfiguration config) throws Exception {
+        int tryIndex = 0;
+        Long lastConnect = lastConnectMillis.get(endpoint);
+        int maxTries = config == null ? 1 : config.getConnectRetries();
+        do {
+            try {
+                if (config != null) {
+                    long waited = waitAtleast(lastConnect,
+                            Math.max(config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis()));
+                    logger.trace(
+                            "Waited {}ms (interConnectDelayMillis {}ms, interBorrowDelayMillis {}ms) before "
+                                    + "connecting disconnected connection {} for endpoint {}, to allow delay "
+                                    + "between connections re-connects",
+                            waited, config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis(),
+                            obj.getObject(), endpoint);
+
+                }
+                connection.connect();
+                lastConnectMillis.put(endpoint, System.currentTimeMillis());
+            } catch (Exception e) {
+                tryIndex++;
+                logger.error("connect try {}/{} error: {}. Connection {}. Endpoint {}", tryIndex, maxTries,
+                        e.getMessage(), connection, endpoint);
+                if (tryIndex >= maxTries) {
+                    logger.error("re-connect reached max tries {}, throwing last error: {}. Connection {}. Endpoint {}",
+                            maxTries, e.getMessage(), connection, endpoint);
+                    throw e;
+                }
+                lastConnect = System.currentTimeMillis();
+            }
+        } while (true);
+    }
+
+    private long waitAtleast(Long lastOperation, long waitMillis) {
+        if (lastOperation == null) {
+            return 0;
+        }
+        long millisSinceLast = System.currentTimeMillis() - lastOperation;
+        long millisToWaitStill = Math.min(waitMillis, Math.max(0, waitMillis - millisSinceLast));
+        try {
+            Thread.sleep(millisToWaitStill);
+        } catch (InterruptedException e) {
+            logger.error("wait interrupted: {}", e.getMessage());
+        }
+        return millisToWaitStill;
     }
 
 }

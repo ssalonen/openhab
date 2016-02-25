@@ -13,6 +13,7 @@ import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -31,6 +32,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.openhab.binding.modbus.ModbusBindingProvider;
 import org.openhab.binding.modbus.internal.ModbusGenericBindingProvider.ModbusBindingConfig;
+import org.openhab.binding.modbus.internal.pooling.EndpointPoolConfiguration;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveConnectionFactoryImpl;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.core.binding.AbstractActiveBinding;
@@ -86,11 +88,13 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         poolConfig.setJmxEnabled(false);
     }
 
-    static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
+    private static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
+    private static ModbusSlaveConnectionFactoryImpl connectionFactory;
 
-    static {
+    private static void constructConnectionPool() {
+        connectionFactory = new ModbusSlaveConnectionFactoryImpl();
         GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> genericKeyedObjectPool = new GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection>(
-                new ModbusSlaveConnectionFactoryImpl(), poolConfig);
+                connectionFactory, poolConfig);
         genericKeyedObjectPool.setSwallowedExceptionListener(new SwallowedExceptionListener() {
 
             @Override
@@ -111,6 +115,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
 
     @Override
     public void deactivate() {
+        clear();
     }
 
     @Override
@@ -264,10 +269,12 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         }
     }
 
-    private void clearSlaves() {
+    private void clear() {
         try {
             // Closes all connections by calling destroyObject method in the ObjectFactory implementation
-            connectionPool.clear();
+            if (connectionPool != null) {
+                connectionPool.clear();
+            }
         } catch (Exception e) {
             // Should not happen
             logger.error("Error clearing connections", e);
@@ -279,9 +286,11 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
     public void updated(Dictionary<String, ?> config) throws ConfigurationException {
         setProperlyConfigured(false);
         // remove all known items if configuration changed
-        clearSlaves();
+        clear();
+        constructConnectionPool();
         if (config != null) {
             Enumeration<String> keys = config.keys();
+            Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new HashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
             while (keys.hasMoreElements()) {
                 String key = keys.nextElement();
 
@@ -313,6 +322,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 String slave = matcher.group(2);
 
                 ModbusSlave modbusSlave = modbusSlaves.get(slave);
+                EndpointPoolConfiguration endpointPoolConfig = new EndpointPoolConfiguration();
                 if (modbusSlave == null) {
                     if (matcher.group(1).equals(TCP_PREFIX)) {
                         modbusSlave = new ModbusTcpSlave(slave, connectionPool);
@@ -324,7 +334,6 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                         throw new ConfigurationException(slave, "the given slave type '" + slave + "' is unknown");
                     }
                     logger.debug("modbusSlave '{}' instanciated", slave);
-                    modbusSlaves.put(slave, modbusSlave);
                 }
 
                 String configKey = matcher.group(3);
@@ -337,13 +346,26 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                         // expecting:
                         // <devicePort>:<port>
                         ((ModbusIPSlave) modbusSlave).setHost(settingIterator.next());
-                        if (settingIterator.hasNext()) {
+                        try {
                             ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(settingIterator.next()));
+
+                            // time to wait between connection borrows, also time to wait between transactions since
+                            // one and only one connection is borrowed for each transaction
+                            long interTransactionDelay = Long.parseLong(settingIterator.next());
+                            modbusSlave.setRetryDelayMillis(interTransactionDelay);
+                            endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
+
+                            // time to wait before trying connect closed connection
+                            endpointPoolConfig.setInterConnectDelayMillis(Integer.parseInt(settingIterator.next()));
+                        } catch (NoSuchElementException e) {
+                            // Some of the optional parameters are missing -- it's ok!
                         }
                         if (settingIterator.hasNext()) {
                             throw new ConfigurationException(key,
-                                    "Has too many colon separated connection settings for a tcp/udp modbus slave. "
-                                            + "Expecting at most 2 parameters: hostname (mandatory) and optionally port number.");
+                                    "Has too many colon (:) separated connection settings for a tcp/udp modbus slave. "
+                                            + "Expecting at most 2 parameters: hostname (mandatory) and "
+                                            + "optionally (in this order) port number, "
+                                            + "interTransactionDelayMillis, interConnectDelayMillis.");
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
                         SerialParameters serialParameters = new SerialParameters();
@@ -354,7 +376,13 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             serialParameters.setParity(settingIterator.next());
                             serialParameters.setStopbits(settingIterator.next());
                             serialParameters.setEncoding(settingIterator.next());
-                            serialParameters.setReceiveTimeout(settingIterator.next());
+                            serialParameters.setReceiveTimeoutMillis(settingIterator.next());
+
+                            // time to wait between connection borrows, i.e. time to wait between transactions
+                            long interTransactionDelay = Long.parseLong(settingIterator.next());
+                            modbusSlave.setRetryDelayMillis(interTransactionDelay);
+                            endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
+
                             serialParameters.setFlowControlIn(settingIterator.next());
                             serialParameters.setFlowControlOut(settingIterator.next());
                         } catch (NoSuchElementException e) {
@@ -363,9 +391,12 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                         if (settingIterator.hasNext()) {
                             throw new ConfigurationException(key,
                                     String.format(
-                                            "Has too many colon separated connection settings for a serial modbus slave. "
-                                                    + "Expecting at most 9 parameters (got %d): devicePort (mandatory), and 0 or more optional parameters (in this order): "
-                                                    + "baudRate, dataBits, parity, stopBits, encoding, timeout, flowControlIn, flowControlOut",
+                                            "Has too many colon (:) separated connection settings for a serial modbus slave. "
+                                                    + "Expecting at most 9 parameters (got %d): devicePort (mandatory), "
+                                                    + "and 0 or more optional parameters (in this order): "
+                                                    + "baudRate, dataBits, parity, stopBits, "
+                                                    + "encoding, receiveTimeoutMillis, "
+                                                    + "interTransactionWaitMillis, flowControlIn, flowControlOut",
                                             chunks.length));
                         }
 
@@ -394,9 +425,12 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 } else {
                     throw new ConfigurationException(configKey, "the given configKey '" + configKey + "' is unknown");
                 }
+                modbusSlaves.put(slave, modbusSlave);
+                endpointPoolConfigs.put(modbusSlave.getEndpoint(), endpointPoolConfig);
             }
 
             logger.debug("config looked good");
+            connectionFactory.setEndpointPoolConfigs(endpointPoolConfigs);
             setProperlyConfigured(true);
         }
 

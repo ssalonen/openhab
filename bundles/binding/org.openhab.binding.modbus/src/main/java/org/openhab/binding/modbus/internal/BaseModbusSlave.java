@@ -437,7 +437,8 @@ public abstract class BaseModbusSlave implements ModbusSlave {
     protected void onConnectionAcquire(ModbusSlaveConnection connection) {
     }
 
-    protected abstract ModbusSlaveEndpoint getEndpoint();
+    @Override
+    public abstract ModbusSlaveEndpoint getEndpoint();
 
     @Override
     public int getStart() {
@@ -497,5 +498,21 @@ public abstract class BaseModbusSlave implements ModbusSlave {
     @Override
     public double getRawDataMultiplier() {
         return rawDataMultiplier;
+    }
+
+    @Override
+    public long getRetryDelayMillis() {
+        if (transaction == null) {
+            throw new IllegalStateException("transaction not initialized!");
+        }
+        return transaction.getRetryDelayMillis();
+    }
+
+    @Override
+    public void setRetryDelayMillis(long retryDelayMillis) {
+        if (transaction == null) {
+            throw new IllegalStateException("transaction not initialized!");
+        }
+        transaction.setRetryDelayMillis(retryDelayMillis);
     }
 }
