@@ -373,7 +373,6 @@ public abstract class BaseModbusSlave implements ModbusSlave {
 
     /**
      * Updates OpenHAB item with data read from slave device
-     * works only for type "coil" and "holding"
      *
      * @param binding ModbusBinding
      * @param item item to update
@@ -402,7 +401,8 @@ public abstract class BaseModbusSlave implements ModbusSlave {
         try {
             connection = getConnection(endpoint);
             if (connection == null) {
-                logger.warn("ModbusSlave ({}) not connected -- aborting read request {}", name, request);
+                logger.warn("ModbusSlave ({}) not connected -- aborting read request {}. Endpoint {}", name, request,
+                        endpoint);
                 return null;
             }
             request.setUnitID(getId());
@@ -411,8 +411,9 @@ public abstract class BaseModbusSlave implements ModbusSlave {
             try {
                 transaction.execute();
             } catch (Exception e) {
-                logger.error("ModbusSlave ({}): Error getting modbus data for request {}. Error: {}", name, request,
-                        e.getMessage());
+                logger.error(
+                        "ModbusSlave ({}): Error getting modbus data for request {}. Error: {}. Endpoint {}. Connection: {}",
+                        name, request, e.getMessage(), endpoint, connection);
                 invalidate(endpoint, connection);
                 // Invalidated connections should not be returned
                 connection = null;
@@ -428,12 +429,6 @@ public abstract class BaseModbusSlave implements ModbusSlave {
         }
         return response;
     }
-
-    // protected abstract boolean isConnected();
-    //
-    // protected abstract boolean connect();
-    //
-    // protected abstract void resetConnection();
 
     protected void onConnectionAcquire(ModbusSlaveConnection connection) {
     }

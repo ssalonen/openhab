@@ -95,9 +95,10 @@ public class ModbusSlaveConnectionFactoryImpl
                             waited, config.getInterBorrowDelayMillis(), obj.getObject(), endpoint);
                 }
                 return;
+            } else {
+                // invariant: !connection.isConnected()
+                tryConnectDisconnected(endpoint, obj, connection, config);
             }
-            // invariant: !connection.isConnected()
-            tryConnectDisconnected(endpoint, obj, connection, config);
             lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
             logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), endpoint, e.getMessage());
