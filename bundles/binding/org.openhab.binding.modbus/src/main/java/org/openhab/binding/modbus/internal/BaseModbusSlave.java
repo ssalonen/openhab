@@ -55,6 +55,7 @@ public abstract class BaseModbusSlave implements ModbusSlave {
 
     /** name - slave name from cfg file, used for items binding */
     protected String name = null;
+    protected ModbusSlaveEndpoint endpoint;
 
     private static boolean writeMultipleRegisters = false;
 
@@ -438,7 +439,9 @@ public abstract class BaseModbusSlave implements ModbusSlave {
     }
 
     @Override
-    public abstract ModbusSlaveEndpoint getEndpoint();
+    public ModbusSlaveEndpoint getEndpoint() {
+        return endpoint;
+    }
 
     @Override
     public int getStart() {

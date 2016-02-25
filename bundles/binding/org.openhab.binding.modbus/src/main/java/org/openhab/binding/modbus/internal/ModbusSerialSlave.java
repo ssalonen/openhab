@@ -29,14 +29,14 @@ import net.wimpi.modbus.util.SerialParameters;
  */
 public class ModbusSerialSlave extends BaseModbusSlave {
 
+    private static final Logger logger = LoggerFactory.getLogger(ModbusSerialSlave.class);
+    private SerialParameters serialParameters = new SerialParameters();
+
     public ModbusSerialSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);
         transaction = new ModbusSerialTransaction();
+        endpoint = new ModbusSerialSlaveEndpoint(serialParameters);
     }
-
-    private static final Logger logger = LoggerFactory.getLogger(ModbusSerialSlave.class);
-
-    private SerialParameters serialParameters = new SerialParameters();
 
     public void setSerialParameters(SerialParameters serialParameters) {
         if (isEncodingValid(serialParameters.getEncoding())) {
@@ -45,6 +45,7 @@ public class ModbusSerialSlave extends BaseModbusSlave {
             logger.warn("Encoding '{}' is unknown. Ignoring configured serial parameters",
                     serialParameters.getEncoding());
         }
+        endpoint = new ModbusSerialSlaveEndpoint(this.serialParameters);
     }
 
     private boolean isEncodingValid(String serialEncoding) {
@@ -64,11 +65,6 @@ public class ModbusSerialSlave extends BaseModbusSlave {
         }
         SerialConnection serialConnection = (SerialConnection) connection;
         ((ModbusSerialTransaction) transaction).setSerialConnection(serialConnection);
-    }
-
-    @Override
-    public ModbusSlaveEndpoint getEndpoint() {
-        return new ModbusSerialSlaveEndpoint(serialParameters);
     }
 
 }

@@ -21,6 +21,7 @@ public abstract class ModbusIPSlave extends BaseModbusSlave {
 
     public ModbusIPSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);
+        updateEndpoint();
     }
 
     /** host address */
@@ -28,20 +29,24 @@ public abstract class ModbusIPSlave extends BaseModbusSlave {
     /** connection port. Default 502 */
     protected int port = Modbus.DEFAULT_PORT;
 
-    String getHost() {
+    public String getHost() {
         return host;
     }
 
-    void setHost(String host) {
+    public void setHost(String host) {
         this.host = host;
+        updateEndpoint();
     }
 
-    int getPort() {
+    public int getPort() {
         return port;
     }
 
-    void setPort(int port) {
+    public void setPort(int port) {
         this.port = port;
+        updateEndpoint();
     }
+
+    protected abstract void updateEndpoint();
 
 }

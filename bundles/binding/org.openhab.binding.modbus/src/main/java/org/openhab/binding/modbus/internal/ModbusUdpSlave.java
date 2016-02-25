@@ -44,7 +44,7 @@ public class ModbusUdpSlave extends ModbusIPSlave {
     }
 
     @Override
-    public ModbusSlaveEndpoint getEndpoint() {
-        return new ModbusUDPSlaveEndpoint(getHost(), getPort());
+    protected void updateEndpoint() {
+        endpoint = new ModbusUDPSlaveEndpoint(getHost(), getPort());
     }
 }
