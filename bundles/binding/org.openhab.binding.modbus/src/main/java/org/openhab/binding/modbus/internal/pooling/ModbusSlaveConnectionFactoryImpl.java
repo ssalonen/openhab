@@ -100,7 +100,7 @@ public class ModbusSlaveConnectionFactoryImpl
             tryConnectDisconnected(endpoint, obj, connection, config);
             lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
-            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), endpoint, e);
+            logger.error("Error connecting connection {} for endpoint {}", obj.getObject(), endpoint, e.getMessage());
         }
     }
 
@@ -166,16 +166,19 @@ public class ModbusSlaveConnectionFactoryImpl
                 if (config != null) {
                     long waited = waitAtleast(lastConnect,
                             Math.max(config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis()));
-                    logger.trace(
-                            "Waited {}ms (interConnectDelayMillis {}ms, interBorrowDelayMillis {}ms) before "
-                                    + "connecting disconnected connection {} for endpoint {}, to allow delay "
-                                    + "between connections re-connects",
-                            waited, config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis(),
-                            obj.getObject(), endpoint);
+                    if (waited > 0) {
+                        logger.trace(
+                                "Waited {}ms (interConnectDelayMillis {}ms, interBorrowDelayMillis {}ms) before "
+                                        + "connecting disconnected connection {} for endpoint {}, to allow delay "
+                                        + "between connections re-connects",
+                                waited, config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis(),
+                                obj.getObject(), endpoint);
+                    }
 
                 }
                 connection.connect();
                 lastConnectMillis.put(endpoint, System.currentTimeMillis());
+                break;
             } catch (Exception e) {
                 tryIndex++;
                 logger.error("connect try {}/{} error: {}. Connection {}. Endpoint {}", tryIndex, maxTries,
