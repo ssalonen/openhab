@@ -290,6 +290,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         constructConnectionPool();
         if (config != null) {
             Enumeration<String> keys = config.keys();
+            Map<String, EndpointPoolConfiguration> slavePoolConfigs = new HashMap<String, EndpointPoolConfiguration>();
             Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new HashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
             while (keys.hasMoreElements()) {
                 String key = keys.nextElement();
@@ -322,7 +323,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 String slave = matcher.group(2);
 
                 ModbusSlave modbusSlave = modbusSlaves.get(slave);
-                EndpointPoolConfiguration endpointPoolConfig = new EndpointPoolConfiguration();
+                EndpointPoolConfiguration endpointPoolConfig = slavePoolConfigs.get(slave);
                 if (modbusSlave == null) {
                     if (matcher.group(1).equals(TCP_PREFIX)) {
                         modbusSlave = new ModbusTcpSlave(slave, connectionPool);
@@ -333,6 +334,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                     } else {
                         throw new ConfigurationException(slave, "the given slave type '" + slave + "' is unknown");
                     }
+                    endpointPoolConfig = new EndpointPoolConfiguration();
                     logger.debug("modbusSlave '{}' instanciated", slave);
                 }
 
@@ -356,7 +358,9 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
 
                             // time to wait before trying connect closed connection
-                            endpointPoolConfig.setInterConnectDelayMillis(Integer.parseInt(settingIterator.next()));
+                            // put same as transaction delay since currently we always close connection after
+                            // each and every transaction
+                            endpointPoolConfig.setInterConnectDelayMillis(interTransactionDelay);
                         } catch (NoSuchElementException e) {
                             // Some of the optional parameters are missing -- it's ok!
                         }
@@ -365,7 +369,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                                     "Has too many colon (:) separated connection settings for a tcp/udp modbus slave. "
                                             + "Expecting at most 2 parameters: hostname (mandatory) and "
                                             + "optionally (in this order) port number, "
-                                            + "interTransactionDelayMillis, interConnectDelayMillis.");
+                                            + "interTransactionDelayMillis.");
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
                         SerialParameters serialParameters = new SerialParameters();
@@ -426,11 +430,15 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                     throw new ConfigurationException(configKey, "the given configKey '" + configKey + "' is unknown");
                 }
                 modbusSlaves.put(slave, modbusSlave);
-                endpointPoolConfigs.put(modbusSlave.getEndpoint(), endpointPoolConfig);
-            }
+                slavePoolConfigs.put(slave, endpointPoolConfig);
+                // FIXME: test here if conflicting pool config, and warn
 
-            logger.debug("config looked good");
+            }
+            for (String slave : slavePoolConfigs.keySet()) {
+                endpointPoolConfigs.put(modbusSlaves.get(slave).getEndpoint(), slavePoolConfigs.get(slave));
+            }
             connectionFactory.setEndpointPoolConfigs(endpointPoolConfigs);
+            logger.debug("config looked good");
             setProperlyConfigured(true);
         }
 
