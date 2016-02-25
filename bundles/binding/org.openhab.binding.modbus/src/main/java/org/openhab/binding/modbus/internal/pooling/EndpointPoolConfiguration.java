@@ -4,7 +4,7 @@ public class EndpointPoolConfiguration {
 
     private long interBorrowDelayMillis;
     private long interConnectDelayMillis;
-    private int connectRetries;
+    private int connectMaxRetries = 1;
 
     public long getInterConnectDelayMillis() {
         return interConnectDelayMillis;
@@ -22,12 +22,12 @@ public class EndpointPoolConfiguration {
         this.interBorrowDelayMillis = interBorrowDelayMillis;
     }
 
-    public int getConnectRetries() {
-        return connectRetries;
+    public int getConnectMaxTries() {
+        return connectMaxRetries;
     }
 
-    public void setConnectRetries(int connectRetries) {
-        this.connectRetries = connectRetries;
+    public void setConnectMaxRetries(int connectMaxRetries) {
+        this.connectMaxRetries = connectMaxRetries;
     }
 
 }

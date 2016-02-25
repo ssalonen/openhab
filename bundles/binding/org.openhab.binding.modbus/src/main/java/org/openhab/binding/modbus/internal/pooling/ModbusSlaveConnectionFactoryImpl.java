@@ -160,7 +160,7 @@ public class ModbusSlaveConnectionFactoryImpl
             ModbusSlaveConnection connection, EndpointPoolConfiguration config) throws Exception {
         int tryIndex = 0;
         Long lastConnect = lastConnectMillis.get(endpoint);
-        int maxTries = config == null ? 1 : config.getConnectRetries();
+        int maxTries = config == null ? 1 : config.getConnectMaxTries();
         do {
             try {
                 if (config != null) {
