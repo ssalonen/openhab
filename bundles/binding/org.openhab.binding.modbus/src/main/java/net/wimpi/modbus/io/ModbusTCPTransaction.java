@@ -206,8 +206,10 @@ public class ModbusTCPTransaction implements ModbusTransaction {
                     break;
                 } catch (ModbusIOException ex) {
                     tries++;
-                    logger.error("execute try {}/{} error: {}. Request: {}. Address: {}:{}", tries, m_Retries,
-                            ex.getMessage(), m_Request, m_Connection.getAddress(), m_Connection.getPort());
+                    logger.error(
+                            "execute try {}/{} error: {}. Request: {} (unit id {} & transaction {}). Address: {}:{}",
+                            tries, m_Retries, ex.getMessage(), m_Request, m_Request.getUnitID(),
+                            m_Request.getTransactionID(), m_Connection.getAddress(), m_Connection.getPort());
                     if (tries >= m_Retries) {
                         logger.error(
                                 "execute reached max tries {}, throwing last error: {}. Request: {}. Address: {}:{}",
