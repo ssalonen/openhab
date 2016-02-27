@@ -94,7 +94,6 @@ public class ModbusSlaveConnectionFactoryImpl
                             "Waited {}ms (interBorrowDelayMillis {}ms) before giving returning connection {} for endpoint {}, to allow delay between transactions.",
                             waited, config.getInterBorrowDelayMillis(), obj.getObject(), endpoint);
                 }
-                return;
             } else {
                 // invariant: !connection.isConnected()
                 tryConnectDisconnected(endpoint, obj, connection, config);
