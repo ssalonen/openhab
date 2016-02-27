@@ -58,13 +58,18 @@ public class ModbusSerialSlave extends BaseModbusSlave {
     }
 
     @Override
-    public void onConnectionAcquire(ModbusSlaveConnection connection) {
+    protected ModbusSlaveConnection getConnection(ModbusSlaveEndpoint endpoint) {
+        ModbusSlaveConnection connection = super.getConnection(endpoint);
+        if (connection == null) {
+            return null;
+        }
         if (!(connection instanceof SerialConnection)) {
-            logger.error("Wrong connection ({}) type for slave ({})", connection, name);
-            return;
+            throw new IllegalStateException("Should not happen: wrong connection type for slave " + name);
         }
         SerialConnection serialConnection = (SerialConnection) connection;
         ((ModbusSerialTransaction) transaction).setSerialConnection(serialConnection);
+        return connection;
+
     }
 
 }

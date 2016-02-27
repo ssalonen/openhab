@@ -11,8 +11,6 @@ package org.openhab.binding.modbus.internal;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusTCPSlaveEndpoint;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import net.wimpi.modbus.io.ModbusTCPTransaction;
 import net.wimpi.modbus.net.TCPMasterConnection;
@@ -27,8 +25,6 @@ import net.wimpi.modbus.net.TCPMasterConnection;
  */
 public class ModbusTcpSlave extends ModbusIPSlave {
 
-    private static final Logger logger = LoggerFactory.getLogger(ModbusTcpSlave.class);
-
     public ModbusTcpSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);
         transaction = new ModbusTCPTransaction();
@@ -36,12 +32,17 @@ public class ModbusTcpSlave extends ModbusIPSlave {
     }
 
     @Override
-    public void onConnectionAcquire(ModbusSlaveConnection connection) {
+    protected ModbusSlaveConnection getConnection(ModbusSlaveEndpoint endpoint) {
+        ModbusSlaveConnection connection = super.getConnection(endpoint);
+        if (connection == null) {
+            return null;
+        }
         if (!(connection instanceof TCPMasterConnection)) {
-            logger.error("Wrong connection ({}) type for slave ({})", connection, name);
-            return;
+            // should not happen
+            throw new IllegalStateException("Should not happen: wrong connection type for slave " + name);
         }
         ((ModbusTCPTransaction) transaction).setConnection((TCPMasterConnection) connection);
+        return connection;
     }
 
     @Override

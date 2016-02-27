@@ -264,7 +264,7 @@ public abstract class BaseModbusSlave implements ModbusSlave {
                 logger.error("ModbusSlave ({}): error when executing write request ({}): {}", name, request,
                         e.getMessage());
                 invalidate(endpoint, connection);
-                // Invalidated connections should not be returned
+                // set connection to null such that it is not returned to pool
                 connection = null;
                 return;
             }
@@ -273,11 +273,8 @@ public abstract class BaseModbusSlave implements ModbusSlave {
         }
     }
 
-    private ModbusSlaveConnection getConnection(ModbusSlaveEndpoint endpoint) {
+    protected ModbusSlaveConnection getConnection(ModbusSlaveEndpoint endpoint) {
         ModbusSlaveConnection connection = borrowConnection(endpoint);
-        if (connection != null) {
-            onConnectionAcquire(connection);
-        }
         return connection;
     }
 
@@ -428,9 +425,6 @@ public abstract class BaseModbusSlave implements ModbusSlave {
             returnConnection(endpoint, connection);
         }
         return response;
-    }
-
-    protected void onConnectionAcquire(ModbusSlaveConnection connection) {
     }
 
     @Override

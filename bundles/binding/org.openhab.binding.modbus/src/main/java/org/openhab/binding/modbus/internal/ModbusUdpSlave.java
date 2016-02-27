@@ -11,8 +11,6 @@ package org.openhab.binding.modbus.internal;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusUDPSlaveEndpoint;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import net.wimpi.modbus.io.ModbusUDPTransaction;
 import net.wimpi.modbus.net.UDPMasterConnection;
@@ -27,20 +25,22 @@ import net.wimpi.modbus.net.UDPMasterConnection;
  */
 public class ModbusUdpSlave extends ModbusIPSlave {
 
-    private static final Logger logger = LoggerFactory.getLogger(ModbusUdpSlave.class);
-
     public ModbusUdpSlave(String slave, KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool) {
         super(slave, connectionPool);
         transaction = new ModbusUDPTransaction();
     }
 
     @Override
-    public void onConnectionAcquire(ModbusSlaveConnection connection) {
+    protected ModbusSlaveConnection getConnection(ModbusSlaveEndpoint endpoint) {
+        ModbusSlaveConnection connection = super.getConnection(endpoint);
+        if (connection == null) {
+            return null;
+        }
         if (!(connection instanceof UDPMasterConnection)) {
-            logger.error("Wrong connection ({}) type for slave ({})", connection, name);
-            return;
+            throw new IllegalStateException("Should not happen: wrong connection type for slave " + name);
         }
         ((ModbusUDPTransaction) transaction).setTerminal(((UDPMasterConnection) connection).getTerminal());
+        return connection;
     }
 
     @Override
