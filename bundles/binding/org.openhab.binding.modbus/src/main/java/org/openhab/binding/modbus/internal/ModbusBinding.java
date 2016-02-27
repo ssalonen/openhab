@@ -193,17 +193,15 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
      * Read data from registers and convert the result to DecimalType
      * Interpretation of <tt>index</tt> goes as follows depending on type
      *
-     * TODO: verify the definitions from the unit tests. Note the backwards logic with BIT and xINT8
-     *
      * BIT:
      * - a single bit is read from the registers
      * - indices between 0...15 (inclusive) represent bits of the first register
      * - indices between 16...31 (inclusive) represent bits of the second register, etc.
-     * - index 0 refers to most significant bit of the first register
-     * - index 1 refers to second most significant bit of the first register, etc.
+     * - index 0 refers to the least significant bit of the first register
+     * - index 1 refers to the second least significant bit of the first register, etc.
      * INT8:
      * - a byte (8 bits) from the registers is interpreted as signed integer
-     * - index 2 refers to low byte of the first register, 1 high byte of first register
+     * - index 0 refers to low byte of the first register, 1 high byte of first register
      * - index 2 refers to low byte of the second register, 3 high byte of second register, etc.
      * - it is assumed that each high and low byte is encoded in most significant bit first order
      * UINT8:
