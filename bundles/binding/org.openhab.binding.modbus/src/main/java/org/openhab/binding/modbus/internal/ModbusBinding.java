@@ -80,18 +80,26 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         // become available. As of pool 1.5, a "fairness" algorithm has been implemented to ensure that threads receive
         // available instances in request arrival order.
         poolConfig.setFairness(true);
+        // Limit one connection per endpoint (i.e. same ip:port pair or same serial device).
+        // If there are multiple read/write requests to process at the same time, block until previous one finishes
         poolConfig.setBlockWhenExhausted(true);
         poolConfig.setMaxTotalPerKey(1);
+
+        // block infinitely when exhausted
+        poolConfig.setMaxWaitMillis(-1);
+
+        // make sure we return connected connections from/to connection pool
         poolConfig.setTestOnBorrow(true);
         poolConfig.setTestOnReturn(true);
-        poolConfig.setMaxWaitMillis(-1);
+
+        // disable JMX
         poolConfig.setJmxEnabled(false);
     }
 
     private static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
     private static ModbusSlaveConnectionFactoryImpl connectionFactory;
 
-    private static void constructConnectionPool() {
+    private static void reconstructConnectionPool() {
         connectionFactory = new ModbusSlaveConnectionFactoryImpl();
         GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> genericKeyedObjectPool = new GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection>(
                 connectionFactory, poolConfig);
@@ -144,7 +152,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
     }
 
     /**
-     * Posts update event to OpenHAB bus for "holding" type slaves
+     * Posts update event to OpenHAB bus for "holding" and "input register" type slaves
      *
      * @param binding ModbusBinding to get item configuration from BindingProviding
      * @param registers data received from slave device in the last pollInterval
@@ -181,6 +189,52 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         }
     }
 
+    /**
+     * Read data from registers and convert the result to DecimalType
+     * Interpretation of <tt>index</tt> goes as follows depending on type
+     *
+     * TODO: verify the definitions from the unit tests. Note the backwards logic with BIT and xINT8
+     *
+     * BIT:
+     * - a single bit is read from the registers
+     * - indices between 0...15 (inclusive) represent bits of the first register
+     * - indices between 16...31 (inclusive) represent bits of the second register, etc.
+     * - index 0 refers to most significant bit of the first register
+     * - index 1 refers to second most significant bit of the first register, etc.
+     * INT8:
+     * - a byte (8 bits) from the registers is interpreted as signed integer
+     * - index 2 refers to low byte of the first register, 1 high byte of first register
+     * - index 2 refers to low byte of the second register, 3 high byte of second register, etc.
+     * - it is assumed that each high and low byte is encoded in most significant bit first order
+     * UINT8:
+     * - same as INT8 except values are interpreted as unsigned integers
+     * INT16:
+     * - register with index (counting from zero) is interpreted as 16 bit signed integer.
+     * - it is assumed that each register is encoded in most significant bit first order
+     * UINT16:
+     * - same as INT16 except values are interpreted as unsigned integers
+     * INT32:
+     * - registers (2 * index) and ( 2 *index + 1) are interpreted as signed 32bit integer.
+     * - it assumed that the two registers follow the big endian byte order
+     * - it is assumed that each register is encoded in most significant bit first order
+     * UINT32:
+     * - same as UINT32 except values are interpreted as unsigned integers
+     * FLOAT32:
+     * - registers (2 * index) and ( 2 *index + 1) are interpreted as signed 32bit floating point number.
+     * - it assumed that the two registers follow the big endian byte order
+     * - it is assumed that each register is encoded in most significant bit first order
+     *
+     * @param registers
+     *            list of registers, each register represent 16bit of data
+     * @param index
+     *            zero based item index. Interpretation of this depends on type
+     * @param type
+     *            item type, e.g. unsigned 16bit integer (<tt>ModbusBindingProvider.VALUE_TYPE_UINT16</tt>)
+     * @return number representation queried value
+     * @throws IllegalArgumentException when <tt>type</tt> does not match a known type
+     * @throws IndexOutOfBoundsException when <tt>index</tt> is out of bounds of registers
+     *
+     */
     private DecimalType extractStateFromRegisters(InputRegister[] registers, int index, String type) {
         if (type.equals(ModbusBindingProvider.VALUE_TYPE_BIT)) {
             return new DecimalType((registers[index / 16].toUnsignedShort() >> (index % 16)) & 1);
@@ -216,7 +270,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
     }
 
     /**
-     * Posts update event to OpenHAB bus for "coil" type slaves
+     * Posts update event to OpenHAB bus for "coil" and "discrete input" type slaves
      *
      * @param binding ModbusBinding to get item configuration from BindingProviding
      * @param registers data received from slave device in the last pollInterval
@@ -269,6 +323,9 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         }
     }
 
+    /**
+     * Clear all configuration and close all connections
+     */
     private void clear() {
         try {
             // Closes all connections by calling destroyObject method in the ObjectFactory implementation
@@ -287,7 +344,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         setProperlyConfigured(false);
         // remove all known items if configuration changed
         clear();
-        constructConnectionPool();
+        reconstructConnectionPool();
         if (config != null) {
             Enumeration<String> keys = config.keys();
             Map<String, EndpointPoolConfiguration> slavePoolConfigs = new HashMap<String, EndpointPoolConfiguration>();

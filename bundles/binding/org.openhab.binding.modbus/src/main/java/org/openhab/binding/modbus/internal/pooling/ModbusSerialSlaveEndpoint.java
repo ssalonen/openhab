@@ -31,7 +31,7 @@ public class ModbusSerialSlaveEndpoint implements ModbusSlaveEndpoint {
     }
 
     @Override
-    public <R> R accept(ModbusSlaveConnectionVisitor<R> factory) {
+    public <R> R accept(ModbusSlaveEndpointVisitor<R> factory) {
         return factory.visit(this);
     }
 

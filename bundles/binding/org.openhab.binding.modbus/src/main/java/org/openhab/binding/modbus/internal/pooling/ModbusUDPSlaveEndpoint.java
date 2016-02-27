@@ -9,7 +9,7 @@ public class ModbusUDPSlaveEndpoint extends ModbusIPSlaveEndpoint {
     }
 
     @Override
-    public <R> R accept(ModbusSlaveConnectionVisitor<R> factory) {
+    public <R> R accept(ModbusSlaveEndpointVisitor<R> factory) {
         return factory.visit(this);
     }
 

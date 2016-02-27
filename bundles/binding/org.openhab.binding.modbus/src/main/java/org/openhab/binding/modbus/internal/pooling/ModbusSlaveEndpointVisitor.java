@@ -1,6 +1,11 @@
 package org.openhab.binding.modbus.internal.pooling;
 
-public interface ModbusSlaveConnectionVisitor<R> {
+/**
+ * Visitor for ModbusSlaveEndpoint
+ *
+ * @param <R> return type from visit
+ */
+public interface ModbusSlaveEndpointVisitor<R> {
 
     R visit(ModbusTCPSlaveEndpoint modbusIPSlavePoolingKey);
 

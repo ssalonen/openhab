@@ -2,6 +2,10 @@ package org.openhab.binding.modbus.internal.pooling;
 
 import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 
-public interface ModbusSlaveConnectionFactory extends ModbusSlaveConnectionVisitor<ModbusSlaveConnection> {
+/**
+ * Factory for ModbusSlaveConnection objects using endpoint definition.
+ *
+ */
+public interface ModbusSlaveConnectionFactory extends ModbusSlaveEndpointVisitor<ModbusSlaveConnection> {
 
 }

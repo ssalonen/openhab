@@ -16,6 +16,21 @@ import net.wimpi.modbus.net.SerialConnection;
 import net.wimpi.modbus.net.TCPMasterConnection;
 import net.wimpi.modbus.net.UDPMasterConnection;
 
+/**
+ * PooledObjectFactory responsible of the lifecycle of modbus slave connections
+ *
+ * The actual pool uses instance of this class to create and destroy connections as-needed.
+ *
+ * The overall functionality goes as follow
+ * - create: create connection object but do not connect it yet
+ * - destroyObject: close connection and free all resources. Called by the pool when the pool is being closed or the
+ * object is invalidated.
+ * - activateObject: prepare connection to be used. In practice, connect if disconnected
+ * - passivateObject: passivate connection before returning it back to the pool. Currently, passivateObject closes all
+ * IP-based connections. Serial connections we keep open.
+ * - wrap: wrap created connection to apache pooled object wrapper class. It tracks usage statistics.
+ *
+ */
 public class ModbusSlaveConnectionFactoryImpl
         extends BaseKeyedPooledObjectFactory<ModbusSlaveEndpoint, ModbusSlaveConnection> {
 
@@ -36,7 +51,7 @@ public class ModbusSlaveConnectionFactoryImpl
 
     @Override
     public ModbusSlaveConnection create(ModbusSlaveEndpoint endpoint) throws Exception {
-        return endpoint.accept(new ModbusSlaveConnectionVisitor<ModbusSlaveConnection>() {
+        return endpoint.accept(new ModbusSlaveEndpointVisitor<ModbusSlaveConnection>() {
             @Override
             public ModbusSlaveConnection visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
                 SerialConnection connection = new SerialConnection(modbusSerialSlavePoolingKey.getSerialParameters());
@@ -121,33 +136,6 @@ public class ModbusSlaveConnectionFactoryImpl
         return valid;
     }
 
-    private void closeIfNotSerialEndpoint(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj) {
-        final PooledObject<ModbusSlaveConnection> finalObj = obj;
-        endpoint.accept(new ModbusSlaveConnectionVisitor<Object>() {
-            @Override
-            public Object visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
-                logger.trace("Not reseting connection {} for endpoint {} since we have Serial endpoint",
-                        finalObj.getObject(), modbusSerialSlavePoolingKey);
-                return null;
-            }
-
-            @Override
-            public Object visit(ModbusTCPSlaveEndpoint modbusIPSlavePoolingKey) {
-                finalObj.getObject().resetConnection();
-                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusIPSlavePoolingKey);
-                return null;
-            }
-
-            @Override
-            public Object visit(ModbusUDPSlaveEndpoint modbusUDPSlavePoolingKey) {
-                finalObj.getObject().resetConnection();
-                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusUDPSlavePoolingKey);
-                return null;
-            }
-
-        });
-    }
-
     public Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> getEndpointPoolConfigs() {
         return endpointPoolConfigs;
     }
@@ -158,6 +146,9 @@ public class ModbusSlaveConnectionFactoryImpl
 
     private void tryConnectDisconnected(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
             ModbusSlaveConnection connection, EndpointPoolConfiguration config) throws Exception {
+        if (connection.isConnected()) {
+            return;
+        }
         int tryIndex = 0;
         Long lastConnect = lastConnectMillis.get(endpoint);
         int maxTries = config == null ? 1 : config.getConnectMaxTries();
@@ -205,6 +196,32 @@ public class ModbusSlaveConnectionFactoryImpl
             logger.error("wait interrupted: {}", e.getMessage());
         }
         return millisToWaitStill;
+    }
+
+    private void closeIfNotSerialEndpoint(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj) {
+        final PooledObject<ModbusSlaveConnection> finalObj = obj;
+        endpoint.accept(new ModbusSlaveEndpointVisitor<Object>() {
+            @Override
+            public Object visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
+                logger.trace("Not reseting connection {} for endpoint {} since we have Serial endpoint",
+                        finalObj.getObject(), modbusSerialSlavePoolingKey);
+                return null;
+            }
+
+            @Override
+            public Object visit(ModbusTCPSlaveEndpoint modbusIPSlavePoolingKey) {
+                finalObj.getObject().resetConnection();
+                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusIPSlavePoolingKey);
+                return null;
+            }
+
+            @Override
+            public Object visit(ModbusUDPSlaveEndpoint modbusUDPSlavePoolingKey) {
+                finalObj.getObject().resetConnection();
+                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusUDPSlavePoolingKey);
+                return null;
+            }
+        });
     }
 
 }

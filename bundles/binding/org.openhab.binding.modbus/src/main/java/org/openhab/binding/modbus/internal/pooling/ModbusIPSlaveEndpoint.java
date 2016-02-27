@@ -5,6 +5,11 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
+/**
+ * Common base class for ip based endpoints. Endpoint differentiates different modbus slaves only by the ip address
+ * (string) and port name.
+ *
+ */
 public abstract class ModbusIPSlaveEndpoint implements ModbusSlaveEndpoint {
 
     private String address;
@@ -31,6 +36,7 @@ public abstract class ModbusIPSlaveEndpoint implements ModbusSlaveEndpoint {
 
     @Override
     public int hashCode() {
+        // differentiate different protocols using the class name, and after that use address and port
         int protocolHash = this.getClass().getName().hashCode();
         if (protocolHash % 2 == 0) {
             protocolHash += 1;
@@ -52,6 +58,7 @@ public abstract class ModbusIPSlaveEndpoint implements ModbusSlaveEndpoint {
             return true;
         }
         if (obj.getClass() != getClass()) {
+            // different protocol -> not equal!
             return false;
         }
         ModbusIPSlaveEndpoint rhs = (ModbusIPSlaveEndpoint) obj;
