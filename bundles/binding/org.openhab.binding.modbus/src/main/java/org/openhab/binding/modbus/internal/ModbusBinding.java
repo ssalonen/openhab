@@ -499,7 +499,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
             for (String slave : slavePoolConfigs.keySet()) {
                 endpointPoolConfigs.put(modbusSlaves.get(slave).getEndpoint(), slavePoolConfigs.get(slave));
             }
-            connectionFactory.setEndpointPoolConfigs(endpointPoolConfigs);
+            connectionFactory.applyEndpointPoolConfigs(endpointPoolConfigs);
             logger.debug("config looked good");
             setProperlyConfigured(true);
         }

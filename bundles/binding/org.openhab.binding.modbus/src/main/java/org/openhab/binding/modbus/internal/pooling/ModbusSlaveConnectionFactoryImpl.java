@@ -2,8 +2,8 @@ package org.openhab.binding.modbus.internal.pooling;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -54,8 +54,8 @@ public class ModbusSlaveConnectionFactoryImpl
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
     private Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs;
-    private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new HashMap<ModbusSlaveEndpoint, Long>();
-    private Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new HashMap<ModbusSlaveEndpoint, Long>();
+    private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
+    private Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
@@ -171,8 +171,9 @@ public class ModbusSlaveConnectionFactoryImpl
         return endpointPoolConfigs;
     }
 
-    public void setEndpointPoolConfigs(Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs) {
-        this.endpointPoolConfigs = endpointPoolConfigs;
+    public void applyEndpointPoolConfigs(Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs) {
+        this.endpointPoolConfigs = new ConcurrentHashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>(
+                endpointPoolConfigs);
     }
 
     private void tryConnect(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
