@@ -19,7 +19,13 @@ public class EndpointPoolConfiguration {
     /**
      * How many times we want to try connecting to the endpoint before giving up. One means that no retries are done.
      */
-    private int connectMaxRetries = 1;
+    private int connectMaxTries = 1;
+
+    /**
+     * Re-connect connection every X milliseconds. Negative means that connection is not reconnected. One can use 0ms to
+     * denote reconnection after every transaction (default).
+     */
+    private int reconnectAfterMillis;
 
     public long getInterConnectDelayMillis() {
         return interConnectDelayMillis;
@@ -38,11 +44,19 @@ public class EndpointPoolConfiguration {
     }
 
     public int getConnectMaxTries() {
-        return connectMaxRetries;
+        return connectMaxTries;
     }
 
-    public void setConnectMaxRetries(int connectMaxRetries) {
-        this.connectMaxRetries = connectMaxRetries;
+    public void setConnectMaxTries(int connectMaxTries) {
+        this.connectMaxTries = connectMaxTries;
+    }
+
+    public int getReconnectAfterMillis() {
+        return reconnectAfterMillis;
+    }
+
+    public void setReconnectAfterMillis(int reconnectAfterMillis) {
+        this.reconnectAfterMillis = reconnectAfterMillis;
     }
 
 }

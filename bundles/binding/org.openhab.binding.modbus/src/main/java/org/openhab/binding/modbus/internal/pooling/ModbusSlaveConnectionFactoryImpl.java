@@ -34,6 +34,24 @@ import net.wimpi.modbus.net.UDPMasterConnection;
 public class ModbusSlaveConnectionFactoryImpl
         extends BaseKeyedPooledObjectFactory<ModbusSlaveEndpoint, ModbusSlaveConnection> {
 
+    private static class PooledConnection extends DefaultPooledObject<ModbusSlaveConnection> {
+
+        private long lastConnected;
+
+        public PooledConnection(ModbusSlaveConnection object) {
+            super(object);
+        }
+
+        public long getLastConnected() {
+            return lastConnected;
+        }
+
+        public void setLastConnected(long lastConnected) {
+            this.lastConnected = lastConnected;
+        }
+
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
     private Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs;
     private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new HashMap<ModbusSlaveEndpoint, Long>();
@@ -85,7 +103,7 @@ public class ModbusSlaveConnectionFactoryImpl
 
     @Override
     public PooledObject<ModbusSlaveConnection> wrap(ModbusSlaveConnection connection) {
-        return new DefaultPooledObject<ModbusSlaveConnection>(connection);
+        return new PooledConnection(connection);
     }
 
     @Override
@@ -111,7 +129,7 @@ public class ModbusSlaveConnectionFactoryImpl
                 }
             } else {
                 // invariant: !connection.isConnected()
-                tryConnectDisconnected(endpoint, obj, connection, config);
+                tryConnect(endpoint, obj, connection, config);
             }
             lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
@@ -121,11 +139,24 @@ public class ModbusSlaveConnectionFactoryImpl
 
     @Override
     public void passivateObject(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj) {
-        if (obj.getObject() == null) {
+        ModbusSlaveConnection connection = obj.getObject();
+        if (connection == null) {
             return;
         }
-        logger.trace("Passivating connection {} for endpoint {}...", obj.getObject(), endpoint);
-        closeIfNotSerialEndpoint(endpoint, obj);
+        logger.trace("Passivating connection {} for endpoint {}...", connection, endpoint);
+        EndpointPoolConfiguration configuration = endpointPoolConfigs.get(endpoint);
+        long reconnectAfterMillis = configuration == null ? 0 : configuration.getReconnectAfterMillis();
+        long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
+        if (reconnectAfterMillis >= 0 && connectionAgeMillis > reconnectAfterMillis) {
+            logger.trace(
+                    "(passivate) Connection {} (endpoint {}) age {}ms is over the reconnectAfterMillis={}ms limit -> disconnecting.",
+                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis);
+            connection.resetConnection();
+        } else {
+            logger.trace(
+                    "(passivate) Connection {} (endpoint {}) age {}ms is below the reconnectAfterMillis={}ms limit. Keep the connection open.",
+                    connection, endpoint, reconnectAfterMillis, connectionAgeMillis);
+        }
         logger.trace("...Passivated connection {} for endpoint {}", obj.getObject(), endpoint);
     }
 
@@ -144,7 +175,7 @@ public class ModbusSlaveConnectionFactoryImpl
         this.endpointPoolConfigs = endpointPoolConfigs;
     }
 
-    private void tryConnectDisconnected(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
+    private void tryConnect(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
             ModbusSlaveConnection connection, EndpointPoolConfiguration config) throws Exception {
         if (connection.isConnected()) {
             return;
@@ -168,7 +199,9 @@ public class ModbusSlaveConnectionFactoryImpl
 
                 }
                 connection.connect();
-                lastConnectMillis.put(endpoint, System.currentTimeMillis());
+                long curTime = System.currentTimeMillis();
+                ((PooledConnection) obj).setLastConnected(curTime);
+                lastConnectMillis.put(endpoint, curTime);
                 break;
             } catch (Exception e) {
                 tryIndex++;
@@ -196,32 +229,6 @@ public class ModbusSlaveConnectionFactoryImpl
             logger.error("wait interrupted: {}", e.getMessage());
         }
         return millisToWaitStill;
-    }
-
-    private void closeIfNotSerialEndpoint(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj) {
-        final PooledObject<ModbusSlaveConnection> finalObj = obj;
-        endpoint.accept(new ModbusSlaveEndpointVisitor<Object>() {
-            @Override
-            public Object visit(ModbusSerialSlaveEndpoint modbusSerialSlavePoolingKey) {
-                logger.trace("Not reseting connection {} for endpoint {} since we have Serial endpoint",
-                        finalObj.getObject(), modbusSerialSlavePoolingKey);
-                return null;
-            }
-
-            @Override
-            public Object visit(ModbusTCPSlaveEndpoint modbusIPSlavePoolingKey) {
-                finalObj.getObject().resetConnection();
-                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusIPSlavePoolingKey);
-                return null;
-            }
-
-            @Override
-            public Object visit(ModbusUDPSlaveEndpoint modbusUDPSlavePoolingKey) {
-                finalObj.getObject().resetConnection();
-                logger.trace("Reseted connection {} for endpoint {}", finalObj.getObject(), modbusUDPSlavePoolingKey);
-                return null;
-            }
-        });
     }
 
 }

@@ -403,22 +403,23 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                     String[] chunks = value.split(":");
                     Iterator<String> settingIterator = stringArrayIterator(chunks);
                     if (modbusSlave instanceof ModbusIPSlave) {
-                        // expecting:
-                        // <devicePort>:<port>
                         ((ModbusIPSlave) modbusSlave).setHost(settingIterator.next());
                         try {
                             ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(settingIterator.next()));
 
-                            // time to wait between connection borrows, also time to wait between transactions since
-                            // one and only one connection is borrowed for each transaction
+                            // time to wait between transactions and retries of each transaction
                             long interTransactionDelay = Long.parseLong(settingIterator.next());
                             modbusSlave.setRetryDelayMillis(interTransactionDelay);
                             endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
 
-                            // time to wait before trying connect closed connection
-                            // put same as transaction delay since currently we always close connection after
-                            // each and every transaction
-                            endpointPoolConfig.setInterConnectDelayMillis(interTransactionDelay);
+                            endpointPoolConfig.setReconnectAfterMillis(Integer.parseInt(settingIterator.next()));
+
+                            // time to wait before trying connect closed connection. Note that
+                            // ModbusSlaveConnectionFactoryImpl makes sure that max of interTransactionDelay and this
+                            // is waited between connection attempts
+                            endpointPoolConfig.setInterConnectDelayMillis(Long.parseLong(settingIterator.next()));
+
+                            endpointPoolConfig.setConnectMaxTries(Integer.parseInt(settingIterator.next()));
                         } catch (NoSuchElementException e) {
                             // Some of the optional parameters are missing -- it's ok!
                         }
@@ -427,11 +428,14 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                                     "Has too many colon (:) separated connection settings for a tcp/udp modbus slave. "
                                             + "Expecting at most 2 parameters: hostname (mandatory) and "
                                             + "optionally (in this order) port number, "
-                                            + "interTransactionDelayMillis.");
+                                            + "interTransactionDelayMillis, reconnectAfterMillis,"
+                                            + "interConnectDelayMillis, connectMaxTries.");
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
                         SerialParameters serialParameters = new SerialParameters();
                         serialParameters.setPortName(settingIterator.next());
+                        // never "disconnect" (close/open serial port) serial connection between borrows
+                        endpointPoolConfig.setReconnectAfterMillis(-1);
                         try {
                             serialParameters.setBaudRate(settingIterator.next());
                             serialParameters.setDatabits(settingIterator.next());
