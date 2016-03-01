@@ -13,6 +13,7 @@ import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusUDPSlaveEndpoint;
 
 import net.wimpi.modbus.io.ModbusUDPTransaction;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.net.UDPMasterConnection;
 
 /**

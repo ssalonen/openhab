@@ -13,6 +13,7 @@ import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusTCPSlaveEndpoint;
 
 import net.wimpi.modbus.io.ModbusTCPTransaction;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.net.TCPMasterConnection;
 
 /**

@@ -3,8 +3,8 @@ package org.openhab.binding.modbus.internal.pooling;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.util.SerialParameters;
 
 /**

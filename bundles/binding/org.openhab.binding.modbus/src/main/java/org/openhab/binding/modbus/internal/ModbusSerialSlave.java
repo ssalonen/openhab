@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.io.ModbusSerialTransaction;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.net.SerialConnection;
 import net.wimpi.modbus.util.SerialParameters;
 

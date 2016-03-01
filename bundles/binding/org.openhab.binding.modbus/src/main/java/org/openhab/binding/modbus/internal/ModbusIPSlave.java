@@ -12,6 +12,7 @@ import org.apache.commons.pool2.KeyedObjectPool;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 
 import net.wimpi.modbus.Modbus;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 
 /**
  *

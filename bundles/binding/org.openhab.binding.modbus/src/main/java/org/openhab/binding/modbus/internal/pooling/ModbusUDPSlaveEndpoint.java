@@ -1,6 +1,6 @@
 package org.openhab.binding.modbus.internal.pooling;
 
-import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 
 public class ModbusUDPSlaveEndpoint extends ModbusIPSlaveEndpoint {
 

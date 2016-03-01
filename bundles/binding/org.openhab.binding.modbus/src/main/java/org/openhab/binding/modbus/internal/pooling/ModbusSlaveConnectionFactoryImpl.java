@@ -8,10 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.net.SerialConnection;
 import net.wimpi.modbus.net.TCPMasterConnection;
 import net.wimpi.modbus.net.UDPMasterConnection;

@@ -20,7 +20,6 @@ import java.net.InetAddress;
 
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.io.ModbusTransport;

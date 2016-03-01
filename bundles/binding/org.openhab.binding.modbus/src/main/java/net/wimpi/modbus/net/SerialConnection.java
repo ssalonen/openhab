@@ -24,7 +24,6 @@ import java.util.TooManyListenersException;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.openhab.binding.modbus.internal.ModbusSlaveConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

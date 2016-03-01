@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.wimpi.modbus.Modbus;
+import net.wimpi.modbus.net.ModbusSlaveConnection;
 import net.wimpi.modbus.procimg.InputRegister;
 import net.wimpi.modbus.util.BitVector;
 import net.wimpi.modbus.util.SerialParameters;
