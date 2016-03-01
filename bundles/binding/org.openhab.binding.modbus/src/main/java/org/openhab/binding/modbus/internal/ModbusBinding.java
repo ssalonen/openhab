@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -493,13 +494,26 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 }
                 modbusSlaves.put(slave, modbusSlave);
                 slavePoolConfigs.put(slave, endpointPoolConfig);
-                // FIXME: test here if conflicting pool config, and warn
-
             }
-            for (String slave : slavePoolConfigs.keySet()) {
-                endpointPoolConfigs.put(modbusSlaves.get(slave).getEndpoint(), slavePoolConfigs.get(slave));
+            // Finally, go through each slave definition, and combine the slave pool configurations
+            for (Entry<String, EndpointPoolConfiguration> slaveEntry : slavePoolConfigs.entrySet()) {
+                String slave = slaveEntry.getKey();
+                EndpointPoolConfiguration poolConfiguration = slaveEntry.getValue();
+                ModbusSlaveEndpoint endpoint = modbusSlaves.get(slave).getEndpoint();
+                EndpointPoolConfiguration existingPoolConfiguration = endpointPoolConfigs.get(endpoint);
+                // Do we have two slaves with same endpoint, but different pool configuration parameters? Warn if we do.
+                if (existingPoolConfiguration != null && !existingPoolConfiguration.equals(poolConfiguration)) {
+                    logger.warn(
+                            "Slave {} (endpoint {}) has different retry/connection delay "
+                                    + "(EndpointPoolConfiguration) etc. settings. Replacing {} with {}",
+                            slave, endpoint, existingPoolConfiguration, poolConfiguration);
+                }
+                endpointPoolConfigs.put(endpoint, poolConfiguration);
             }
             connectionFactory.applyEndpointPoolConfigs(endpointPoolConfigs);
+            logger.debug("Parsed the following slave->endpoint configurations: {}. If the endpoint is same, "
+                    + "connections are shared between the instances.", slavePoolConfigs);
+            logger.debug("Parsed the following pool configurations: {}", endpointPoolConfigs);
             logger.debug("config looked good");
             setProperlyConfigured(true);
         }
