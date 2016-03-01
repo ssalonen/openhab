@@ -374,6 +374,8 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             pollInterval = Integer.valueOf((String) config.get(key));
                         }
                     } else if ("writemultipleregisters".equals(key)) {
+                        // XXX: ugly to touch base class but kept here for backwards compat
+                        // FIXME: should this be deprecated as introduced as slave specific parameter?
                         BaseModbusSlave.setWriteMultipleRegisters(Boolean.valueOf(config.get(key).toString()));
                     } else {
                         logger.debug(
