@@ -17,7 +17,7 @@ import net.wimpi.modbus.net.TCPMasterConnection;
 import net.wimpi.modbus.net.UDPMasterConnection;
 
 /**
- * PooledObjectFactory responsible of the lifecycle of modbus slave connections
+ * ModbusSlaveConnectionFactoryImpl responsible of the lifecycle of modbus slave connections
  *
  * The actual pool uses instance of this class to create and destroy connections as-needed.
  *
@@ -28,7 +28,9 @@ import net.wimpi.modbus.net.UDPMasterConnection;
  * - activateObject: prepare connection to be used. In practice, connect if disconnected
  * - passivateObject: passivate connection before returning it back to the pool. Currently, passivateObject closes all
  * IP-based connections. Serial connections we keep open.
- * - wrap: wrap created connection to apache pooled object wrapper class. It tracks usage statistics.
+ * - wrap: wrap created connection to pooled object wrapper class. It tracks usage statistics and last connection time.
+ *
+ * Note that the implementation must be thread safe.
  *
  */
 public class ModbusSlaveConnectionFactoryImpl
