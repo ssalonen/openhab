@@ -59,9 +59,10 @@ public class TestCaseSupport {
 
     /**
      * Servers to test
-     * Serial is system dependent
+     * Serial is system dependent (would need working null modem connection)
      */
-    public static final ServerType[] TEST_SERVERS = new ServerType[] { ServerType.TCP, ServerType.UDP,
+    public static final ServerType[] TEST_SERVERS = new ServerType[] { ServerType.TCP,
+            // ServerType.UDP,
             // ServerType.SERIAL
     };
 
@@ -292,8 +293,9 @@ public class TestCaseSupport {
                 if (ServerType.TCP.equals(serverType)) {
                     verify(tcpConnectionFactory, times(expectedConnections)).create(any(Socket.class));
                 } else if (ServerType.UDP.equals(serverType)) {
-                    verify(udpTerminalFactory, times(expectedConnections)).create(any(InetAddress.class),
-                            any(Integer.class));
+                    // No-op
+                    // verify(udpTerminalFactory, times(expectedConnections)).create(any(InetAddress.class),
+                    // any(Integer.class));
                 } else if (ServerType.SERIAL.equals(serverType)) {
                     // No-op
                 } else {
