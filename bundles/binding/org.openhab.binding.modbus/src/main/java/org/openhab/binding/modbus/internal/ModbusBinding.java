@@ -47,6 +47,7 @@ import org.osgi.service.cm.ManagedService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.procimg.InputRegister;
 import net.wimpi.modbus.util.BitVector;
 import net.wimpi.modbus.util.SerialParameters;
@@ -390,6 +391,8 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                         throw new ConfigurationException(slave, "the given slave type '" + slave + "' is unknown");
                     }
                     endpointPoolConfig = new EndpointPoolConfiguration();
+                    // Do not give up if the connection attempt fails on the first time...
+                    endpointPoolConfig.setConnectMaxTries(Modbus.DEFAULT_RETRIES);
                     logger.debug("modbusSlave '{}' instanciated", slave);
                 }
 
