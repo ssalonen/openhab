@@ -22,7 +22,8 @@ public class EndpointPoolConfiguration {
     private int connectMaxTries = 1;
 
     /**
-     * Re-connect connection every X milliseconds. Negative means that connection is not reconnected. One can use 0ms to
+     * Re-connect connection every X milliseconds. Negative means that connection is not reconnected regularly. One can
+     * use 0ms to
      * denote reconnection after every transaction (default).
      */
     private int reconnectAfterMillis;

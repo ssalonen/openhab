@@ -149,7 +149,7 @@ public class ModbusSlaveConnectionFactoryImpl
         EndpointPoolConfiguration configuration = endpointPoolConfigs.get(endpoint);
         long reconnectAfterMillis = configuration == null ? 0 : configuration.getReconnectAfterMillis();
         long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
-        if (reconnectAfterMillis >= 0 && connectionAgeMillis > reconnectAfterMillis) {
+        if (reconnectAfterMillis == 0 || (reconnectAfterMillis > 0 && connectionAgeMillis > reconnectAfterMillis)) {
             logger.trace(
                     "(passivate) Connection {} (endpoint {}) age {}ms is over the reconnectAfterMillis={}ms limit -> disconnecting.",
                     connection, endpoint, connectionAgeMillis, reconnectAfterMillis);
