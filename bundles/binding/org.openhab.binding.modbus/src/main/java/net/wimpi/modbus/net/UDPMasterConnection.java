@@ -32,6 +32,8 @@ import net.wimpi.modbus.io.ModbusTransport;
  */
 public class UDPMasterConnection implements ModbusSlaveConnection {
 
+    private static int LOCAL_PORT = 50000;
+
     // instance attributes
     private UDPMasterTerminal m_Terminal;
     private int m_Timeout = Modbus.DEFAULT_TIMEOUT;
@@ -66,12 +68,13 @@ public class UDPMasterConnection implements ModbusSlaveConnection {
      *
      * @throws Exception if there is a network failure.
      */
+
     @Override
     public synchronized boolean connect() throws Exception {
         if (!m_Connected) {
             m_Terminal = new UDPMasterTerminal();
             m_Terminal.setLocalAddress(InetAddress.getLocalHost());
-            m_Terminal.setLocalPort(5000);
+            m_Terminal.setLocalPort(LOCAL_PORT);
             m_Terminal.setRemoteAddress(m_Address);
             m_Terminal.setRemotePort(m_Port);
             m_Terminal.setTimeout(m_Timeout);
