@@ -36,7 +36,7 @@ import net.wimpi.modbus.Modbus;
  */
 public class SerialParameters {
 
-    public static int DEFAULT_RECEIVE_TIMEOUT_MILLIS = 500; // 0.5 secs
+    public static int DEFAULT_RECEIVE_TIMEOUT_MILLIS = 1500; // 1.5 secs
 
     // instance attributes
     private String m_PortName;

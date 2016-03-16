@@ -166,6 +166,7 @@ public class ModbusASCIITransport extends ModbusSerialTransport {
                         throw new IOException("readResponse: I/O exception - Serial port timeout.");
                     }
                 }
+                logger.trace("Managed to read at least one byte");
                 // 2. Read to FRAME_END
                 synchronized (m_InBuffer) {
                     m_ByteInOut.reset();

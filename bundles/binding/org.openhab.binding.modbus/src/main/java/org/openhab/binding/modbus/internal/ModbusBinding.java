@@ -56,12 +56,29 @@ import net.wimpi.modbus.util.SerialParameters;
 
 /**
  * Modbus binding allows to connect to multiple Modbus slaves as TCP master.
- * This implementation works with coils (boolean values) only.
  *
  * @author Dmitry Krasnov
  * @since 1.1.0
  */
 public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>implements ManagedService {
+
+    private static final long DEFAULT_POLL_INTERVAL = 200;
+
+    /**
+     * Time to wait between connection passive+borrow, i.e. time to wait between
+     * transactions
+     * Default 50ms for TCP slaves, Siemens S7 1212 PLC couldn't handle faster
+     * requests with default settings.
+     */
+    private static final long DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS = 50;
+
+    /**
+     * Time to wait between connection passive+borrow, i.e. time to wait between
+     * transactions
+     * Default 35ms for Serial slaves, motivation discussed
+     * here https://community.openhab.org/t/connection-pooling-in-modbus-binding/5246/111?u=ssalonen
+     */
+    private static final long DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS = 35;
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusBinding.class);
 
@@ -99,6 +116,15 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         poolConfig.setJmxEnabled(false);
     }
 
+    /**
+     * We use connection pool to ensure that only single transaction is ongoing per each endpoint. This is especially
+     * important with serial slaves but practice has shown that even many tcp slaves have limited
+     * capability to handle many connections at the same time
+     *
+     * Relevant discussion at the time of implementation:
+     * - https://community.openhab.org/t/modbus-connection-problem/6108/
+     * - https://community.openhab.org/t/connection-pooling-in-modbus-binding/5246/
+     */
     private static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
     private static ModbusSlaveConnectionFactoryImpl connectionFactory;
 
@@ -125,8 +151,8 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         return connectionPool;
     }
 
-    /** slaves update interval in milliseconds, defaults to 200ms */
-    public static int pollInterval = 200;
+    /** slaves update interval in milliseconds */
+    public static long pollInterval = DEFAULT_POLL_INTERVAL;
 
     @Override
     public void activate() {
@@ -182,10 +208,13 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
             String slaveValueType = modbusSlaves.get(slaveName).getValueType();
             double rawDataMultiplier = modbusSlaves.get(slaveName).getRawDataMultiplier();
 
-            State newState = extractStateFromRegisters(registers, config.readRegister, slaveValueType);
             /* receive data manipulation */
+            State newState = extractStateFromRegisters(registers, config.readRegister, slaveValueType);
+            // Convert newState (DecimalType) to on/off kind of state if we have "boolean item" (Switch, Contact etc)
+            // In other cases (such as Number items) newStateBoolean will be UNDEF
             State newStateBoolean = provider.getConfig(itemName)
                     .translateBoolean2State(!newState.equals(DecimalType.ZERO));
+            // If we have boolean item (newStateBoolean is not UNDEF)
             if (!UnDefType.UNDEF.equals(newStateBoolean)) {
                 newState = newStateBoolean;
             } else if ((rawDataMultiplier != 1) && (config.getItem() instanceof NumberItem)) {
@@ -224,13 +253,13 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
      * - same as INT16 except values are interpreted as unsigned integers
      * INT32:
      * - registers (2 * index) and ( 2 *index + 1) are interpreted as signed 32bit integer.
-     * - it assumed that the two registers follow the big endian byte order
+     * - it assumed that the first register contains the most significant 16 bits
      * - it is assumed that each register is encoded in most significant bit first order
      * UINT32:
      * - same as UINT32 except values are interpreted as unsigned integers
      * FLOAT32:
      * - registers (2 * index) and ( 2 *index + 1) are interpreted as signed 32bit floating point number.
-     * - it assumed that the two registers follow the big endian byte order
+     * - it assumed that the first register contains the most significant 16 bits
      * - it is assumed that each register is encoded in most significant bit first order
      *
      * @param registers
@@ -354,13 +383,17 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
         // remove all known items if configuration changed
         clear();
         reconstructConnectionPool();
-        if (config != null) {
-            Enumeration<String> keys = config.keys();
-            Map<String, EndpointPoolConfiguration> slavePoolConfigs = new HashMap<String, EndpointPoolConfiguration>();
-            Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new HashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
-            while (keys.hasMoreElements()) {
-                String key = keys.nextElement();
-
+        if (config == null) {
+            logger.warn("Got null config!");
+            return;
+        }
+        Enumeration<String> keys = config.keys();
+        Map<String, EndpointPoolConfiguration> slavePoolConfigs = new HashMap<String, EndpointPoolConfiguration>();
+        Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new HashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
+        while (keys.hasMoreElements()) {
+            final String key = keys.nextElement();
+            final String value = (String) config.get(key);
+            try {
                 // the config-key enumeration contains additional keys that we
                 // don't want to process here ...
                 if ("service.pid".equals(key)) {
@@ -410,17 +443,24 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 }
 
                 String configKey = matcher.group(3);
-                String value = (String) config.get(key);
 
                 if ("connection".equals(configKey)) {
                     String[] chunks = value.split(":");
                     Iterator<String> settingIterator = stringArrayIterator(chunks);
                     if (modbusSlave instanceof ModbusIPSlave) {
                         ((ModbusIPSlave) modbusSlave).setHost(settingIterator.next());
+                        //
+                        // Defaults for endpoint and slave
+                        //
+                        modbusSlave.setRetryDelayMillis(DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
+                        endpointPoolConfig.setPassivateBorrowMinMillis(DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
+
+                        //
+                        // Optional parameters
+                        //
                         try {
                             ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(settingIterator.next()));
 
-                            // time to wait between connection passive+borrow, i.e. time to wait between transactions
                             long passivateBorrowMinMillis = Long.parseLong(settingIterator.next());
                             modbusSlave.setRetryDelayMillis(passivateBorrowMinMillis);
                             endpointPoolConfig.setPassivateBorrowMinMillis(passivateBorrowMinMillis);
@@ -437,46 +477,57 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             // Some of the optional parameters are missing -- it's ok!
                         }
                         if (settingIterator.hasNext()) {
-                            throw new ConfigurationException(key,
-                                    "Has too many colon (:) separated connection settings for a tcp/udp modbus slave. "
-                                            + "Expecting at most 2 parameters: hostname (mandatory) and "
+                            String errMsg = String
+                                    .format("%s Has too many colon (:) separated connection settings for a tcp/udp modbus slave. "
+                                            + "Expecting at most 6 parameters: hostname (mandatory) and "
                                             + "optionally (in this order) port number, "
                                             + "interTransactionDelayMillis, reconnectAfterMillis,"
-                                            + "interConnectDelayMillis, connectMaxTries.");
+                                            + "interConnectDelayMillis, connectMaxTries.", key);
+                            throw new ConfigurationException(key, errMsg);
                         }
                     } else if (modbusSlave instanceof ModbusSerialSlave) {
                         SerialParameters serialParameters = new SerialParameters();
                         serialParameters.setPortName(settingIterator.next());
-                        // never "disconnect" (close/open serial port) serial connection between borrows
-                        endpointPoolConfig.setReconnectAfterMillis(-1);
+                        //
+                        // Defaults for endpoint and slave
+                        //
+                        endpointPoolConfig.setReconnectAfterMillis(-1); // never "disconnect" (close/open serial port)
+                                                                        // serial connection between borrows
+                        modbusSlave.setRetryDelayMillis(DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
+                        endpointPoolConfig.setPassivateBorrowMinMillis(DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
+
+                        //
+                        // Optional parameters
+                        //
                         try {
                             serialParameters.setBaudRate(settingIterator.next());
                             serialParameters.setDatabits(settingIterator.next());
                             serialParameters.setParity(settingIterator.next());
                             serialParameters.setStopbits(settingIterator.next());
                             serialParameters.setEncoding(settingIterator.next());
-                            serialParameters.setReceiveTimeoutMillis(settingIterator.next());
 
-                            // time to wait between connection passive+borrow, i.e. time to wait between transactions
+                            // time to wait between connection passive+borrow, i.e. time to wait between
+                            // transactions
                             long passivateBorrowMinMillis = Long.parseLong(settingIterator.next());
                             modbusSlave.setRetryDelayMillis(passivateBorrowMinMillis);
                             endpointPoolConfig.setPassivateBorrowMinMillis(passivateBorrowMinMillis);
 
+                            serialParameters.setReceiveTimeoutMillis(settingIterator.next());
                             serialParameters.setFlowControlIn(settingIterator.next());
                             serialParameters.setFlowControlOut(settingIterator.next());
                         } catch (NoSuchElementException e) {
                             // Some of the optional parameters are missing -- it's ok!
                         }
                         if (settingIterator.hasNext()) {
-                            throw new ConfigurationException(key,
-                                    String.format(
-                                            "Has too many colon (:) separated connection settings for a serial modbus slave. "
-                                                    + "Expecting at most 9 parameters (got %d): devicePort (mandatory), "
-                                                    + "and 0 or more optional parameters (in this order): "
-                                                    + "baudRate, dataBits, parity, stopBits, "
-                                                    + "encoding, receiveTimeoutMillis, "
-                                                    + "interTransactionWaitMillis, flowControlIn, flowControlOut",
-                                            chunks.length));
+                            String errMsg = String.format(
+                                    "%s Has too many colon (:) separated connection settings for a serial modbus slave. "
+                                            + "Expecting at most 9 parameters (got %d): devicePort (mandatory), "
+                                            + "and 0 or more optional parameters (in this order): "
+                                            + "baudRate, dataBits, parity, stopBits, "
+                                            + "encoding, interTransactionWaitMillis, "
+                                            + "receiveTimeoutMillis, flowControlIn, flowControlOut",
+                                    key, chunks.length);
+                            throw new ConfigurationException(key, errMsg);
                         }
 
                         ((ModbusSerialSlave) modbusSlave).setSerialParameters(serialParameters);
@@ -506,29 +557,34 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                 }
                 modbusSlaves.put(slave, modbusSlave);
                 slavePoolConfigs.put(slave, endpointPoolConfig);
+            } catch (Exception e) {
+                String errMsg = String.format("Exception when parsing configuration parameter %s = %s  --  %s %s", key,
+                        value, e.getClass().getName(), e.getMessage());
+                logger.error(errMsg);
+                throw new ConfigurationException(key, errMsg);
             }
-            // Finally, go through each slave definition, and combine the slave pool configurations
-            for (Entry<String, EndpointPoolConfiguration> slaveEntry : slavePoolConfigs.entrySet()) {
-                String slave = slaveEntry.getKey();
-                EndpointPoolConfiguration poolConfiguration = slaveEntry.getValue();
-                ModbusSlaveEndpoint endpoint = modbusSlaves.get(slave).getEndpoint();
-                EndpointPoolConfiguration existingPoolConfiguration = endpointPoolConfigs.get(endpoint);
-                // Do we have two slaves with same endpoint, but different pool configuration parameters? Warn if we do.
-                if (existingPoolConfiguration != null && !existingPoolConfiguration.equals(poolConfiguration)) {
-                    logger.warn(
-                            "Slave {} (endpoint {}) has different retry/connection delay "
-                                    + "(EndpointPoolConfiguration) etc. settings. Replacing {} with {}",
-                            slave, endpoint, existingPoolConfiguration, poolConfiguration);
-                }
-                endpointPoolConfigs.put(endpoint, poolConfiguration);
-            }
-            connectionFactory.applyEndpointPoolConfigs(endpointPoolConfigs);
-            logger.debug("Parsed the following slave->endpoint configurations: {}. If the endpoint is same, "
-                    + "connections are shared between the instances.", slavePoolConfigs);
-            logger.debug("Parsed the following pool configurations: {}", endpointPoolConfigs);
-            logger.debug("config looked good");
-            setProperlyConfigured(true);
         }
+        // Finally, go through each slave definition, and combine the slave pool configurations
+        for (Entry<String, EndpointPoolConfiguration> slaveEntry : slavePoolConfigs.entrySet()) {
+            String slave = slaveEntry.getKey();
+            EndpointPoolConfiguration poolConfiguration = slaveEntry.getValue();
+            ModbusSlaveEndpoint endpoint = modbusSlaves.get(slave).getEndpoint();
+            EndpointPoolConfiguration existingPoolConfiguration = endpointPoolConfigs.get(endpoint);
+            // Do we have two slaves with same endpoint, but different pool configuration parameters? Warn if we do.
+            if (existingPoolConfiguration != null && !existingPoolConfiguration.equals(poolConfiguration)) {
+                logger.warn(
+                        "Slave {} (endpoint {}) has different retry/connection delay "
+                                + "(EndpointPoolConfiguration) etc. settings. Replacing {} with {}",
+                        slave, endpoint, existingPoolConfiguration, poolConfiguration);
+            }
+            endpointPoolConfigs.put(endpoint, poolConfiguration);
+        }
+        connectionFactory.applyEndpointPoolConfigs(endpointPoolConfigs);
+        logger.debug("Parsed the following slave->endpoint configurations: {}. If the endpoint is same, "
+                + "connections are shared between the instances.", slavePoolConfigs);
+        logger.debug("Parsed the following pool configurations: {}", endpointPoolConfigs);
+        logger.debug("config looked good");
+        setProperlyConfigured(true);
 
     }
 

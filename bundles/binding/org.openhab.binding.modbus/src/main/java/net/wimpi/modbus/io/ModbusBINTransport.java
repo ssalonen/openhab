@@ -161,7 +161,7 @@ public class ModbusBINTransport extends ModbusSerialTransport {
             do {
                 // 1. Skip to FRAME_START
                 while ((in = m_InputStream.read()) != FRAME_START) {
-                    ;
+                    // FIXME: handle EOF, similar to ASCIITransport
                 }
                 // 2. Read to FRAME_END
                 synchronized (m_InBuffer) {

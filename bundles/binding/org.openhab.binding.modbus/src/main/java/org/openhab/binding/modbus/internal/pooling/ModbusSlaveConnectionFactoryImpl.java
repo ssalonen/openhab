@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2010-2016, openHAB.org and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ */
 package org.openhab.binding.modbus.internal.pooling;
 
 import java.net.InetAddress;
@@ -27,7 +35,7 @@ import net.wimpi.modbus.net.UDPMasterConnection;
  * object is invalidated.
  * - activateObject: prepare connection to be used. In practice, connect if disconnected
  * - passivateObject: passivate connection before returning it back to the pool. Currently, passivateObject closes all
- * IP-based connections. Serial connections we keep open.
+ * IP-based connections every now and then (reconnectAfterMillis). Serial connections we keep open.
  * - wrap: wrap created connection to pooled object wrapper class. It tracks usage statistics and last connection time.
  *
  * Note that the implementation must be thread safe.

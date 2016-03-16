@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2010-2016, openHAB.org and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ */
 package org.openhab.binding.modbus.internal.pooling;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
@@ -19,19 +27,19 @@ public class EndpointPoolConfiguration {
     private long passivateBorrowMinMillis;
 
     /**
-     * How long should we wait between connection-establishments from the pool. In milliseconds.
+     * How long should be the minimum duration between connection-establishments from the pool. In milliseconds.
      */
     private long interConnectDelayMillis;
 
     /**
-     * How many times we want to try connecting to the endpoint before giving up. One means that no retries are done.
+     * How many times we want to try connecting to the endpoint before giving up. One means that connection
+     * establishment is tried once.
      */
     private int connectMaxTries = 1;
 
     /**
-     * Re-connect connection every X milliseconds. Negative means that connection is not reconnected regularly. One can
-     * use 0ms to
-     * denote reconnection after every transaction (default).
+     * Re-connect connection every X milliseconds. Negative means that connection is not disconnected automatically.
+     * One can use 0ms to denote reconnection after every transaction (default).
      */
     private int reconnectAfterMillis;
 

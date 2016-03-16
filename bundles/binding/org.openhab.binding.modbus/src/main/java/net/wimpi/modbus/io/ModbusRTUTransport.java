@@ -124,6 +124,7 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
                     // Make ComPort blocking
                     m_CommPort.enableReceiveThreshold(1);
                     int uid = m_InputStream.read();
+                    logger.trace("Managed to read at least one byte");
                     if (uid != -1) {
                         int fc = m_InputStream.read();
                         m_ByteInOut.reset();
