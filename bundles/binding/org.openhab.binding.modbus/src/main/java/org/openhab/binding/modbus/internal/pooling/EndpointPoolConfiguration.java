@@ -12,9 +12,11 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 public class EndpointPoolConfiguration {
 
     /**
-     * How long should we wait between connection-borrow from the pool. In milliseconds.
+     * How long should be the minimum duration between passivate and
+     * consecutive borrow of connected connection
+     * In milliseconds.
      */
-    private long interBorrowDelayMillis;
+    private long passivateBorrowMinMillis;
 
     /**
      * How long should we wait between connection-establishments from the pool. In milliseconds.
@@ -47,14 +49,6 @@ public class EndpointPoolConfiguration {
         this.interConnectDelayMillis = interConnectDelayMillis;
     }
 
-    public long getInterBorrowDelayMillis() {
-        return interBorrowDelayMillis;
-    }
-
-    public void setInterBorrowDelayMillis(long interBorrowDelayMillis) {
-        this.interBorrowDelayMillis = interBorrowDelayMillis;
-    }
-
     public int getConnectMaxTries() {
         return connectMaxTries;
     }
@@ -71,15 +65,23 @@ public class EndpointPoolConfiguration {
         this.reconnectAfterMillis = reconnectAfterMillis;
     }
 
+    public long getPassivateBorrowMinMillis() {
+        return passivateBorrowMinMillis;
+    }
+
+    public void setPassivateBorrowMinMillis(long passivateBorrowMinMillis) {
+        this.passivateBorrowMinMillis = passivateBorrowMinMillis;
+    }
+
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(2149, 3117).append(interBorrowDelayMillis).append(interConnectDelayMillis)
+        return new HashCodeBuilder(2149, 3117).append(passivateBorrowMinMillis).append(interConnectDelayMillis)
                 .append(connectMaxTries).append(reconnectAfterMillis).toHashCode();
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, toStringStyle).append("interBorrowDelayMillis", interBorrowDelayMillis)
+        return new ToStringBuilder(this, toStringStyle).append("passivateBorrowMinMillis", passivateBorrowMinMillis)
                 .append("interConnectDelayMillis", interConnectDelayMillis).append("connectMaxTries", connectMaxTries)
                 .append("reconnectAfterMillis", reconnectAfterMillis).toString();
     }
@@ -96,7 +98,7 @@ public class EndpointPoolConfiguration {
             return false;
         }
         EndpointPoolConfiguration rhs = (EndpointPoolConfiguration) obj;
-        return new EqualsBuilder().append(interBorrowDelayMillis, rhs.interBorrowDelayMillis)
+        return new EqualsBuilder().append(passivateBorrowMinMillis, rhs.passivateBorrowMinMillis)
                 .append(interConnectDelayMillis, rhs.interConnectDelayMillis)
                 .append(connectMaxTries, rhs.connectMaxTries).append(reconnectAfterMillis, rhs.reconnectAfterMillis)
                 .isEquals();

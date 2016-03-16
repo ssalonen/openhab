@@ -420,16 +420,16 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                         try {
                             ((ModbusIPSlave) modbusSlave).setPort(Integer.valueOf(settingIterator.next()));
 
-                            // time to wait between transactions and retries of each transaction
-                            long interTransactionDelay = Long.parseLong(settingIterator.next());
-                            modbusSlave.setRetryDelayMillis(interTransactionDelay);
-                            endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
+                            // time to wait between connection passive+borrow, i.e. time to wait between transactions
+                            long passivateBorrowMinMillis = Long.parseLong(settingIterator.next());
+                            modbusSlave.setRetryDelayMillis(passivateBorrowMinMillis);
+                            endpointPoolConfig.setPassivateBorrowMinMillis(passivateBorrowMinMillis);
 
                             endpointPoolConfig.setReconnectAfterMillis(Integer.parseInt(settingIterator.next()));
 
                             // time to wait before trying connect closed connection. Note that
-                            // ModbusSlaveConnectionFactoryImpl makes sure that max of interTransactionDelay and this
-                            // is waited between connection attempts
+                            // ModbusSlaveConnectionFactoryImpl makes sure that max{passivateBorrowMinMillis, this
+                            // parameter} is waited between connection attempts
                             endpointPoolConfig.setInterConnectDelayMillis(Long.parseLong(settingIterator.next()));
 
                             endpointPoolConfig.setConnectMaxTries(Integer.parseInt(settingIterator.next()));
@@ -457,10 +457,10 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             serialParameters.setEncoding(settingIterator.next());
                             serialParameters.setReceiveTimeoutMillis(settingIterator.next());
 
-                            // time to wait between connection borrows, i.e. time to wait between transactions
-                            long interTransactionDelay = Long.parseLong(settingIterator.next());
-                            modbusSlave.setRetryDelayMillis(interTransactionDelay);
-                            endpointPoolConfig.setInterBorrowDelayMillis(interTransactionDelay);
+                            // time to wait between connection passive+borrow, i.e. time to wait between transactions
+                            long passivateBorrowMinMillis = Long.parseLong(settingIterator.next());
+                            modbusSlave.setRetryDelayMillis(passivateBorrowMinMillis);
+                            endpointPoolConfig.setPassivateBorrowMinMillis(passivateBorrowMinMillis);
 
                             serialParameters.setFlowControlIn(settingIterator.next());
                             serialParameters.setFlowControlOut(settingIterator.next());

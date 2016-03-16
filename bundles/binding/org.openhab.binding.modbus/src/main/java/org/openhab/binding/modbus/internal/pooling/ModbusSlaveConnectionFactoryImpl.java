@@ -56,8 +56,8 @@ public class ModbusSlaveConnectionFactoryImpl
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusSlaveConnectionFactoryImpl.class);
     private volatile Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new ConcurrentHashMap<ModbusSlaveEndpoint, EndpointPoolConfiguration>();
-    private Map<ModbusSlaveEndpoint, Long> lastBorrowMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
-    private Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
+    private volatile Map<ModbusSlaveEndpoint, Long> lastPassivateMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
+    private volatile Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<ModbusSlaveEndpoint, Long>();
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
@@ -124,16 +124,15 @@ public class ModbusSlaveConnectionFactoryImpl
 
             if (connection.isConnected()) {
                 if (config != null) {
-                    long waited = waitAtleast(lastBorrowMillis.get(endpoint), config.getInterBorrowDelayMillis());
+                    long waited = waitAtleast(lastPassivateMillis.get(endpoint), config.getPassivateBorrowMinMillis());
                     logger.trace(
-                            "Waited {}ms (interBorrowDelayMillis {}ms) before giving returning connection {} for endpoint {}, to allow delay between transactions.",
-                            waited, config.getInterBorrowDelayMillis(), obj.getObject(), endpoint);
+                            "Waited {}ms (passivateBorrowMinMillis {}ms) before giving returning connection {} for endpoint {}, to ensure delay between transactions.",
+                            waited, config.getPassivateBorrowMinMillis(), obj.getObject(), endpoint);
                 }
             } else {
                 // invariant: !connection.isConnected()
                 tryConnect(endpoint, obj, connection, config);
             }
-            lastBorrowMillis.put(endpoint, System.currentTimeMillis());
         } catch (Exception e) {
             logger.error("Error connecting connection {} for endpoint {}: {}", obj.getObject(), endpoint,
                     e.getMessage());
@@ -147,6 +146,7 @@ public class ModbusSlaveConnectionFactoryImpl
             return;
         }
         logger.trace("Passivating connection {} for endpoint {}...", connection, endpoint);
+        lastPassivateMillis.put(endpoint, System.currentTimeMillis());
         EndpointPoolConfiguration configuration = endpointPoolConfigs.get(endpoint);
         long reconnectAfterMillis = configuration == null ? 0 : configuration.getReconnectAfterMillis();
         long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
@@ -157,8 +157,8 @@ public class ModbusSlaveConnectionFactoryImpl
             connection.resetConnection();
         } else {
             logger.trace(
-                    "(passivate) Connection {} (endpoint {}) age {}ms is below the reconnectAfterMillis={}ms limit. Keep the connection open.",
-                    connection, endpoint, reconnectAfterMillis, connectionAgeMillis);
+                    "(passivate) Connection {} (endpoint {}) age ({}ms) is below the reconnectAfterMillis ({}ms) limit. Keep the connection open.",
+                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis);
         }
         logger.trace("...Passivated connection {} for endpoint {}", obj.getObject(), endpoint);
     }
@@ -191,13 +191,13 @@ public class ModbusSlaveConnectionFactoryImpl
             try {
                 if (config != null) {
                     long waited = waitAtleast(lastConnect,
-                            Math.max(config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis()));
+                            Math.max(config.getInterConnectDelayMillis(), config.getPassivateBorrowMinMillis()));
                     if (waited > 0) {
                         logger.trace(
-                                "Waited {}ms (interConnectDelayMillis {}ms, interBorrowDelayMillis {}ms) before "
+                                "Waited {}ms (interConnectDelayMillis {}ms, passivateBorrowMinMillis {}ms) before "
                                         + "connecting disconnected connection {} for endpoint {}, to allow delay "
                                         + "between connections re-connects",
-                                waited, config.getInterConnectDelayMillis(), config.getInterBorrowDelayMillis(),
+                                waited, config.getInterConnectDelayMillis(), config.getPassivateBorrowMinMillis(),
                                 obj.getObject(), endpoint);
                     }
 
