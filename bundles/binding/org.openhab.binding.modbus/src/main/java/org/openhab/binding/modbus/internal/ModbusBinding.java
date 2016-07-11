@@ -509,9 +509,8 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider>i
                             //
                             // Defaults for endpoint and slave
                             //
-                            endpointPoolConfig.setReconnectAfterMillis(-1); // never "disconnect" (close/open serial
-                                                                            // port)
-                                                                            // serial connection between borrows
+                            // reconfigure serial port with every transaction
+                            endpointPoolConfig.setReconnectAfterMillis(0);
                             modbusSlave.setRetryDelayMillis(DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
                             endpointPoolConfig
                                     .setPassivateBorrowMinMillis(DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
