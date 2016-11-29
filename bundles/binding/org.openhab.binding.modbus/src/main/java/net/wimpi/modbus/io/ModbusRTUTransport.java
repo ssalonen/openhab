@@ -245,8 +245,11 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
 
     private int readByte(BytesOutputStream out) throws IOException {
         byte[] buffer = new byte[1];
-        int read = readBytes(buffer, 0, 1, out);
-        return buffer[0];
+        int readCount = readBytes(buffer, 0, 1, out);
+        if (readCount != 1) {
+            throw new IOException("Cannot read from serial port");
+        }
+        return buffer[0] & 0xff;
     }
 
     private void getResponse(int fn, BytesOutputStream out) throws IOException {
