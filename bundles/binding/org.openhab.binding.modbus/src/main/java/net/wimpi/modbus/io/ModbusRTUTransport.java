@@ -142,7 +142,9 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
                         // timeout and to message specific parsing to read a response.
                         getResponse(fc, m_ByteInOut);
                         dlength = m_ByteInOut.size() - 2; // less the crc
-                        logger.debug("Response: {}", ModbusUtil.toHex(m_ByteInOut.getBuffer(), 0, dlength + 2));
+                        logger.debug(
+                                "Response (including unit id (1 byte), FC  (1 byte), message (N bytes) and CRC  (2 bytes)): {}",
+                                ModbusUtil.toHex(m_ByteInOut.getBuffer(), 0, dlength + 2));
 
                         m_ByteIn.reset(m_InBuffer, dlength);
 
@@ -202,10 +204,57 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
         super.close();
     }// close
 
+    private int readBytes(byte[] buffer, int offset, int byteCount, BytesOutputStream out) throws IOException {
+        int remaining = byteCount;
+        int readTryIndex = 0;
+        while (remaining > 0) {
+            if (readTryIndex > 20) {
+                logger.warn("Stopping read, remaining bytes {} (out of {}) after {} reads", remaining, byteCount,
+                        readTryIndex);
+                break;
+            }
+            int readBytes;
+            try {
+                setReceiveThreshold(remaining);
+                readBytes = m_InputStream.read(buffer, offset, remaining);
+            } finally {
+                m_CommPort.disableReceiveThreshold();
+            }
+            if (readBytes > 0) {
+                out.write(buffer, offset, readBytes);
+                remaining -= readBytes;
+                logger.debug("(read {} bytes: {})", readBytes, ModbusUtil.toHex(buffer, 0, readBytes));
+            }
+            if (remaining > 0) {
+                readTryIndex++;
+                // yield thread
+                try {
+                    logger.debug("(could not read everything in one go, trying again)");
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                }
+            }
+
+            readTryIndex++;
+        }
+        if (remaining == 0) {
+            logger.debug("Read all {} bytes: {}", byteCount, ModbusUtil.toHex(buffer, 0, byteCount));
+        }
+        return byteCount - remaining;
+    }
+
+    private int readByte(BytesOutputStream out) throws IOException {
+        byte[] buffer = new byte[1];
+        int read = readBytes(buffer, 0, 1, out);
+        return buffer[0];
+    }
+
     private void getResponse(int fn, BytesOutputStream out) throws IOException {
         int bc = -1, bc2 = -1, bcw = -1;
         int inpBytes = 0;
         byte inpBuf[] = new byte[256];
+
+        logger.debug("Reading response of function {}", fn);
 
         try {
             switch (fn) {
@@ -219,17 +268,10 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
                 case 0x15: // write log entry (60000 memory reference)
                 case 0x17:
                     // read the byte count;
-                    setReceiveThreshold(1);
-                    bc = m_InputStream.read();
-                    out.write(bc);
+                    bc = readByte(out);
+                    logger.debug("FC{}, expected byte count to follow {} (+2 CRC)", fn, bc);
                     // now get the specified number of bytes and the 2 CRC bytes
-                    setReceiveThreshold(bc + 2);
-                    inpBytes = m_InputStream.read(inpBuf, 0, bc + 2);
-                    out.write(inpBuf, 0, inpBytes);
-                    m_CommPort.disableReceiveThreshold();
-                    if (inpBytes != bc + 2) {
-                        logger.error("awaited {} bytes, but received {}", (bc + 2), inpBytes);
-                    }
+                    inpBytes = readBytes(inpBuf, 0, bc + 2, out);
                     break;
                 case 0x05:
                 case 0x06:
@@ -237,39 +279,23 @@ public class ModbusRTUTransport extends ModbusSerialTransport {
                 case 0x0F:
                 case 0x10:
                     // read status: only the CRC remains after address and function code
-                    setReceiveThreshold(6);
-                    inpBytes = m_InputStream.read(inpBuf, 0, 6);
-                    out.write(inpBuf, 0, inpBytes);
-                    m_CommPort.disableReceiveThreshold();
+                    inpBytes = readBytes(inpBuf, 0, 6, out);
                     break;
                 case 0x07:
                 case 0x08:
                     // read status: only the CRC remains after address and function code
-                    setReceiveThreshold(3);
-                    inpBytes = m_InputStream.read(inpBuf, 0, 3);
-                    out.write(inpBuf, 0, inpBytes);
-                    m_CommPort.disableReceiveThreshold();
+                    inpBytes = readBytes(inpBuf, 0, 3, out);
                     break;
                 case 0x16:
                     // eight bytes in addition to the address and function codes
-                    setReceiveThreshold(8);
-                    inpBytes = m_InputStream.read(inpBuf, 0, 8);
-                    out.write(inpBuf, 0, inpBytes);
-                    m_CommPort.disableReceiveThreshold();
+                    inpBytes = readBytes(inpBuf, 0, 8, out);
                     break;
                 case 0x18:
                     // read the byte count word
-                    setReceiveThreshold(1);
-                    bc = m_InputStream.read();
-                    out.write(bc);
-                    bc2 = m_InputStream.read();
-                    out.write(bc2);
-                    bcw = ModbusUtil.makeWord(bc, bc2);
+                    inpBytes = readBytes(inpBuf, 0, 2, out);
+                    bcw = ModbusUtil.makeWord(inpBuf[0], inpBuf[1]);
                     // now get the specified number of bytes and the 2 CRC bytes
-                    setReceiveThreshold(bcw + 2);
-                    inpBytes = m_InputStream.read(inpBuf, 0, bcw + 2);
-                    out.write(inpBuf, 0, inpBytes);
-                    m_CommPort.disableReceiveThreshold();
+                    inpBytes = readBytes(inpBuf, 0, bcw + 2, out);
                     break;
             }
         } catch (IOException e) {
