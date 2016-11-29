@@ -118,6 +118,7 @@ public class CommandLineTest {
                 + "-r #     start index, zero based (default 0)\n"//
                 + "-c #     number of values to poll (default 1)\n"//
                 + "-t 4     16-bit holding register data\n"//
+                + "-rr #     retries, default 1\n"//
                 + "\n\n"//
                 + "Options for TCP:\n"//
                 + "-p # TCP port number (default 502)\n"//
@@ -162,32 +163,43 @@ public class CommandLineTest {
             serialParameters.setEncoding("rtu");
             serialParameters.setReceiveTimeoutMillis(10000);
             connection = new SerialConnection(serialParameters);
+            logger.info("Serial parameters used in connection {}", serialParameters);
             transaction = new ModbusSerialTransaction();
         } else {
             assert "tcp".equals(type);
             connection = new TCPMasterConnection(InetAddress.getByName(destination),
                     Integer.valueOf(options.getOrDefault("-p", "502")), 5000);
+            logger.info("TCP host:port: {}:{}", ((TCPMasterConnection) connection).getAddress(),
+                    ((TCPMasterConnection) connection).getPort());
             transaction = new ModbusTCPTransaction((TCPMasterConnection) connection);
         }
         transaction.setRequest(request);
 
         try {
-            logger.info(String.format("Will try to connec to to %s", connection));
-            connection.connect();
+            logger.info("Will try to connect to {}", connection);
+            boolean connected = connection.connect();
+            logger.info("Connected: {}", connected);
+
+            // sleep for a while for slave to initialize itself
+            logger.info("Sleep for 1s to give slave some time");
+            Thread.sleep(1000);
+
             if (type.equals("tcp")) {
                 ((ModbusTCPTransaction) transaction).setConnection((TCPMasterConnection) connection);
             } else {
                 ((ModbusSerialTransaction) transaction).setSerialConnection((SerialConnection) connection);
             }
+            transaction.setRetries(Integer.valueOf(options.getOrDefault("-rr", "1")));
+            transaction.setRetryDelayMillis(1000);
+            logger.info("Executing transactions");
             transaction.execute();
             ModbusResponse response = transaction.getResponse();
-            logger.info(
-                    String.format("Got response (FC%s): HEX=%s", response.getFunctionCode(), response.getHexMessage()));
+            logger.info("Got response (FC{}): HEX={}", response.getFunctionCode(), response.getHexMessage());
             ReadMultipleRegistersResponse typedResponse = (ReadMultipleRegistersResponse) response;
 
             int i = 0;
             for (Register register : typedResponse.getRegisters()) {
-                logger.info(String.format("Register[%d] as unsigned short=%d", ref + i, register.toUnsignedShort()));
+                logger.info("Register[{}] as unsigned short={}", ref + i, register.toUnsignedShort());
                 i++;
             }
         } finally {
