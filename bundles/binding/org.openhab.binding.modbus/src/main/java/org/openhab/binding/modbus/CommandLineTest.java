@@ -119,6 +119,8 @@ public class CommandLineTest {
                 + "-c #     number of values to poll (default 1)\n"//
                 + "-t 4     16-bit holding register data\n"//
                 + "-rr #     retries, default 1\n"//
+                + "-flowin *     flow control in 1\n"//
+                + "-flowout *     flow control out 1\n"//
                 + "\n\n"//
                 + "Options for TCP:\n"//
                 + "-p # TCP port number (default 502)\n"//
@@ -161,6 +163,8 @@ public class CommandLineTest {
             serialParameters.setStopbits(options.getOrDefault("-s", "1"));
             serialParameters.setParity(options.getOrDefault("-p", "even"));
             serialParameters.setEncoding("rtu");
+            serialParameters.setFlowControlIn(options.getOrDefault("-flowin", "none"));
+            serialParameters.setFlowControlOut(options.getOrDefault("-flowout", "none"));
             serialParameters.setReceiveTimeoutMillis(10000);
             connection = new SerialConnection(serialParameters);
             logger.info("Serial parameters used in connection {}", serialParameters);
