@@ -1,5 +1,9 @@
 /**
+<<<<<<< af3b0c872e66c30d8ac2c7cdca36c5c4904e7d25
  * Copyright (c) 2010-2017 by the respective copyright holders.
+=======
+ * Copyright (c) 2010-2016 by the respective copyright holders.
+>>>>>>> [modbus] general purpose tokenizer introduced for parsing val1<SEP>val2
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
