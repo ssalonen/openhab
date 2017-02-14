@@ -57,7 +57,7 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         this.serverType = serverType;
         // Server is a bit slower to respond than normally
         // this for the testConfigUpdatedWhilePolling
-        this.artificialServerWait = 800;
+        this.artificialServerWait = 1000; // Also remember default timeout for tcp Modbus.DEFAULT_TIMEOUT
     }
 
     @Test
