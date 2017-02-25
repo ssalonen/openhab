@@ -66,6 +66,7 @@ public class ModbusSlaveConnectionFactoryImpl
     private volatile Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs = new ConcurrentHashMap<>();
     private volatile Map<ModbusSlaveEndpoint, Long> lastPassivateMillis = new ConcurrentHashMap<>();
     private volatile Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<>();
+    private volatile Map<ModbusSlaveEndpoint, Long> disconnectIfConnectedBefore = new ConcurrentHashMap<>();
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
@@ -163,17 +164,22 @@ public class ModbusSlaveConnectionFactoryImpl
         logger.trace("Passivating connection {} for endpoint {}...", connection, endpoint);
         lastPassivateMillis.put(endpoint, System.currentTimeMillis());
         EndpointPoolConfiguration configuration = endpointPoolConfigs.get(endpoint);
+        long connected = ((PooledConnection) obj).getLastConnected();
         long reconnectAfterMillis = configuration == null ? 0 : configuration.getReconnectAfterMillis();
         long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
-        if (reconnectAfterMillis == 0 || (reconnectAfterMillis > 0 && connectionAgeMillis > reconnectAfterMillis)) {
+        long disconnectBeforeConnectedMillis = disconnectIfConnectedBefore.get(endpoint);
+        if (reconnectAfterMillis == 0 || (reconnectAfterMillis > 0 && connectionAgeMillis > reconnectAfterMillis)
+                || connected < disconnectBeforeConnectedMillis) {
             logger.trace(
-                    "(passivate) Connection {} (endpoint {}) age {}ms is over the reconnectAfterMillis={}ms limit -> disconnecting.",
-                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis);
+                    "(passivate) Connection {} (endpoint {}) age {}ms is over the reconnectAfterMillis={}ms limit or has been connection time ({}) is after the \"disconnectBeforeConnectedMillis\" -> disconnecting.",
+                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis, connected,
+                    disconnectBeforeConnectedMillis);
             connection.resetConnection();
         } else {
             logger.trace(
-                    "(passivate) Connection {} (endpoint {}) age ({}ms) is below the reconnectAfterMillis ({}ms) limit. Keep the connection open.",
-                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis);
+                    "(passivate) Connection {} (endpoint {}) age ({}ms) is below the reconnectAfterMillis ({}ms) limit and connection time ({}) is after the \"disconnectBeforeConnectedMillis\". Keep the connection open.",
+                    connection, endpoint, connectionAgeMillis, reconnectAfterMillis, connected,
+                    disconnectBeforeConnectedMillis);
         }
         logger.trace("...Passivated connection {} for endpoint {}", obj.getObject(), endpoint);
     }
@@ -247,6 +253,15 @@ public class ModbusSlaveConnectionFactoryImpl
             logger.error("wait interrupted: {}", e.getMessage());
         }
         return millisToWaitStill;
+    }
+
+    /**
+     * Disconnect returning connections which have been connected before certain time
+     *
+     * @param disconnectBeforeConnectedMillis disconnected connections that have been connected before this time
+     */
+    public void disconnectOnReturn(ModbusSlaveEndpoint endpoint, long disconnectBeforeConnectedMillis) {
+        disconnectIfConnectedBefore.put(endpoint, disconnectBeforeConnectedMillis);
     }
 
 }

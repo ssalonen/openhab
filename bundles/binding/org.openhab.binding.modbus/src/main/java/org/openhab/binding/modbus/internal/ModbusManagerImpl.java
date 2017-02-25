@@ -1,6 +1,11 @@
 package org.openhab.binding.modbus.internal;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.SwallowedExceptionListener;
@@ -30,6 +35,38 @@ import net.wimpi.modbus.msg.ReadMultipleRegistersRequest;
 import net.wimpi.modbus.net.ModbusSlaveConnection;
 
 public class ModbusManagerImpl implements ModbusManager {
+
+    private static class PollTaskImpl implements PollTask {
+
+        private ModbusSlaveEndpoint endpoint;
+
+        public PollTaskImpl(ModbusSlaveEndpoint endpoint) {
+            this.endpoint = endpoint;
+        }
+
+        @Override
+        public ModbusSlaveEndpoint getEndpoint() {
+            return endpoint;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (this.getClass() != obj.getClass()) {
+                return false;
+            }
+            PollTaskImpl other = (PollTaskImpl) obj;
+            return this.endpoint.equals(other.getEndpoint());
+        }
+
+        @Override
+        public int hashCode() {
+            return this.endpoint.hashCode();
+        }
+
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusManagerImpl.class);
     private static GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
@@ -75,9 +112,14 @@ public class ModbusManagerImpl implements ModbusManager {
     private static KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> connectionPool;
     private static ModbusSlaveConnectionFactoryImpl connectionFactory;
 
+    private volatile Map<PollTask, ScheduledFuture<?>> scheduledPollTasks = new ConcurrentHashMap<>();
+    private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(10);
+
     // private static void reconstructConnectionPool() {
     static {
         connectionFactory = new ModbusSlaveConnectionFactoryImpl();
+        // FIXME: have a visitor for Endpoint providing the default configuraiton
+
         GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> genericKeyedObjectPool = new GenericKeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection>(
                 connectionFactory, poolConfig);
         genericKeyedObjectPool.setSwallowedExceptionListener(new SwallowedExceptionListener() {
@@ -90,21 +132,6 @@ public class ModbusManagerImpl implements ModbusManager {
         });
         connectionPool = genericKeyedObjectPool;
     }
-
-    // /**
-    // * Clear all configuration and close all connections
-    // */
-    // private void clearConnectionPool() {
-    // try {
-    // // Closes all connections by calling destroyObject method in the ObjectFactory implementation
-    // if (connectionPool != null) {
-    // connectionPool.close();
-    // }
-    // } catch (Exception e) {
-    // // Should not happen
-    // logger.error("Error clearing connections", e);
-    // }
-    // }
 
     @Override
     public void setEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint, EndpointPoolConfiguration configuration) {
@@ -195,8 +222,27 @@ public class ModbusManagerImpl implements ModbusManager {
 
     @Override
     public boolean unregisterRegularPoll(PollTask task) {
-        // TODO: mark connection to be destroyed/closed if opened before current time
-        return false;
+        // cancel poller
+        ScheduledFuture<?> future = scheduledPollTasks.remove(task);
+        if (future == null) {
+            // No such poll task
+            return false;
+        }
+        future.cancel(false);
+
+        // Make sure connections to this endpoint are closed when they are returned to pool (~ usually pretty soon)
+        ModbusManagerImpl.connectionFactory.disconnectOnReturn(task.getEndpoint(), System.currentTimeMillis());
+
+        try {
+            // Close all idle connections as well (they will be reconnected if necessary on borrow)
+            connectionPool.clear(task.getEndpoint());
+        } catch (Exception e) {
+            logger.error("Could not clear unregister poll task {} endpoint {}. Stack trace follows", task,
+                    task.getEndpoint(), e);
+            return false;
+        }
+
+        return true;
     }
 
     private Optional<ModbusSlaveConnection> borrowConnection(ModbusSlaveEndpoint endpoint) {
@@ -236,6 +282,16 @@ public class ModbusManagerImpl implements ModbusManager {
             }
         });
         logger.trace("returned connection for endpoint {}", endpoint);
+    }
+
+    @Override
+    public PollTask registerRegularPoll(ModbusSlaveEndpoint endpoint, ModbusRequestBlueprint message,
+            long pollPeriodMillis, ModbusSlaveReader callback) {
+        ScheduledFuture<?> future = scheduledThreadPoolExecutor.scheduleAtFixedRate(
+                () -> this.executeOneTimePoll(endpoint, message, callback), 0, pollPeriodMillis, TimeUnit.MILLISECONDS);
+        PollTask task = new PollTaskImpl(endpoint);
+        scheduledPollTasks.put(task, future);
+        return task;
     }
 
 }

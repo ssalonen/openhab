@@ -106,7 +106,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
         // Limit one connection per endpoint (i.e. same ip:port pair or same serial device).
         // If there are multiple read/write requests to process at the same time, block until previous one finishes
         poolConfig.setBlockWhenExhausted(true);
-        poolConfig.setMaxTotalPerKey(1);
+        poolConfig.setMaxTotalPerKey(1); // TODO: have different max per pool?
 
         // block infinitely when exhausted
         poolConfig.setMaxWaitMillis(-1);
@@ -143,7 +143,6 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
 
             }
         });
-        connectionPool = genericKeyedObjectPool;
     }
 
     /**

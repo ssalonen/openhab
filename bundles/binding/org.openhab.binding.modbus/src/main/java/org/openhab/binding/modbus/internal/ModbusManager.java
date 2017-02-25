@@ -38,6 +38,4 @@ public interface ModbusManager {
 
     public boolean unregisterRegularPoll(PollTask task);
 
-    public void close(ModbusSlaveEndpoint endpoint);
-
 }
