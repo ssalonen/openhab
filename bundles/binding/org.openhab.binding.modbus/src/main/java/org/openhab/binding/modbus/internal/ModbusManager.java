@@ -1,7 +1,5 @@
 package org.openhab.binding.modbus.internal;
 
-import java.util.Optional;
-
 import org.openhab.binding.modbus.internal.pooling.EndpointPoolConfiguration;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 
@@ -12,15 +10,8 @@ public interface ModbusManager {
         ModbusSlaveEndpoint getEndpoint();
     }
 
-    /**
-     * Configure general connection settings with a given endpoint
-     *
-     * @param endpoint
-     * @param configuration
-     */
-    public void setEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint, EndpointPoolConfiguration configuration);
-
-    public Optional<EndpointPoolConfiguration> getEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint);
+    public void executeOneTimePoll(ModbusSlaveEndpoint endpoint, ModbusReadRequestBlueprint message,
+            ReadCallback callback);
 
     /**
      *
@@ -30,12 +21,22 @@ public interface ModbusManager {
      * @param pollPeriodMillis
      * @return string identifier for the poll
      */
-    public PollTask registerRegularPoll(ModbusSlaveEndpoint endpoint, ModbusRequestBlueprint message,
-            long pollPeriodMillis, ModbusSlaveReader callback);
-
-    public void executeOneTimePoll(ModbusSlaveEndpoint endpoint, ModbusRequestBlueprint message,
-            ModbusSlaveReader callback);
+    public PollTask registerRegularPoll(ModbusSlaveEndpoint endpoint, ModbusReadRequestBlueprint message,
+            long pollPeriodMillis, ReadCallback callback);
 
     public boolean unregisterRegularPoll(PollTask task);
+
+    public void writeCommand(ModbusSlaveEndpoint endpoint, ModbusWriteRequestBlueprint message,
+            WriteCallback callback);
+
+    /**
+     * Configure general connection settings with a given endpoint
+     *
+     * @param endpoint
+     * @param configuration
+     */
+    public void setEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint, EndpointPoolConfiguration configuration);
+
+    public EndpointPoolConfiguration getEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint);
 
 }

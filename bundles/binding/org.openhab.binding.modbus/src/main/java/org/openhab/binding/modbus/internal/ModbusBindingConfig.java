@@ -61,10 +61,13 @@ public class ModbusBindingConfig implements BindingConfig {
     private static SimpleTokenizer keyValueTokenizer = new SimpleTokenizer('=');
 
     /**
+     * Deprecated. See ModbusSlaveReaderUsingIOConnection.convertBooleanToState
+     *
      * Calculates new item state based on the new boolean value, current item state and item class
      * Used with item bound to "coil" type slaves
      *
      * Returns UnDefType.UNDEF for Number and other "uncompatible" item types
+     *
      *
      * @param previousState
      * @param b new boolean value
@@ -73,6 +76,7 @@ public class ModbusBindingConfig implements BindingConfig {
      *
      * @return new item state
      */
+    @Deprecated
     protected State translateBoolean2State(State previousState, boolean b) {
         Class<? extends State> c = null;
         if (previousState == null) {
@@ -82,16 +86,22 @@ public class ModbusBindingConfig implements BindingConfig {
         }
 
         if (c == UnDefType.class && itemClass == SwitchItem.class) {
+            // Switch -> ON/OFF
             return b ? OnOffType.ON : OnOffType.OFF;
         } else if (c == UnDefType.class && itemClass == ContactItem.class) {
+            // contact -> OPEN/CLOSED
             return b ? OpenClosedType.OPEN : OpenClosedType.CLOSED;
         } else if (c == OnOffType.class && itemClass == SwitchItem.class) {
+            // Switch -> ON/OFF
             return b ? OnOffType.ON : OnOffType.OFF;
         } else if (c == OpenClosedType.class && itemClass == SwitchItem.class) {
+            // Switch -> ON/OFF
             return b ? OnOffType.ON : OnOffType.OFF;
         } else if (c == OnOffType.class && itemClass == ContactItem.class) {
+            // contact -> OPEN/CLOSED
             return b ? OpenClosedType.OPEN : OpenClosedType.CLOSED;
         } else if (c == OpenClosedType.class && itemClass == ContactItem.class) {
+            // contact -> OPEN/CLOSED
             return b ? OpenClosedType.OPEN : OpenClosedType.CLOSED;
         } else {
             // Number items
@@ -267,7 +277,7 @@ public class ModbusBindingConfig implements BindingConfig {
                 }
 
                 ItemIOConnection connection = new ItemIOConnection(slaveName, index, type, trigger, transformation,
-                        valueType);
+                        valueType, itemAcceptedCommandTypes, itemAcceptedDataTypes);
                 if (read) {
                     readConnections.add(connection);
                 } else {
@@ -322,8 +332,10 @@ public class ModbusBindingConfig implements BindingConfig {
             exception.initCause(e);
             throw exception;
         }
-        readConnections.add(new ItemIOConnection(slaveName, readIndex, IOType.STATE));
-        writeConnections.add(new ItemIOConnection(slaveName, writeIndex, IOType.COMMAND));
+        readConnections.add(new ItemIOConnection(slaveName, readIndex, IOType.STATE, itemAcceptedCommandTypes,
+                itemAcceptedDataTypes));
+        writeConnections.add(new ItemIOConnection(slaveName, writeIndex, IOType.COMMAND, itemAcceptedCommandTypes,
+                itemAcceptedDataTypes));
     }
 
     private static void validateSimpleIndexEntry(String entry1, String entry2) throws BindingConfigParseException {

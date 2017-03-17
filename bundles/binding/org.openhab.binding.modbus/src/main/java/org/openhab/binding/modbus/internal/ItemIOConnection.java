@@ -8,12 +8,16 @@
  */
 package org.openhab.binding.modbus.internal;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.openhab.core.library.items.ContactItem;
+import org.openhab.core.library.items.SwitchItem;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 
@@ -60,6 +64,7 @@ public class ItemIOConnection {
      * read connections, and COMMAND type for write connections.
      */
     private ItemIOConnection.IOType type;
+
     /**
      * On write IO connections: string representation of the non-transformed command that are accepted by this IO
      * connection, and thus
@@ -72,16 +77,18 @@ public class ItemIOConnection {
      * trigger only on changed values. With read connections, use "default" to refer to * or CHANGED depending on
      * updateunchangeditems slave setting. With write connections, use "default" to refer to *.
      */
-    private String trigger;
+    private String trigger = TRIGGER_DEFAULT;
+
     /**
      * Object representing transformation for the command or state
      */
-    private Transformation transformation;
+    private Transformation transformation = Transformation.IDENTITY_TRANSFORMATION;
+
     /**
      * Use "default" to use slave's value type when interpreting data. Use any other known value type (e.g. int32) to
      * override the value type.
      */
-    private String valueType;
+    private String valueType = VALUETYPE_DEFAULT;
 
     /**
      * Previously polled state(s) of Item, converted to state as defined by ItemIOConnection. Initialized to null so
@@ -98,32 +105,44 @@ public class ItemIOConnection {
      * Value of zero is used for connections that have no polls at all yet.
      */
     private long pollNumber = 0;
+
+    private List<Class<? extends Command>> acceptedCommandTypes;
+    private List<Class<? extends State>> acceptedDataTypes;
+
+    private static final UnaryOperator<Boolean> RAISE_ILLEGAL_STATE_EXCEPTION = polledValuedChanged -> {
+        throw new IllegalStateException("Trigger=default not supported");
+    };
+
     /**
      * Global number indicating how many polls have taken place by all instances of ItemIOConnection (plus one).
      */
     private static AtomicLong globalPollNumber = new AtomicLong(1);
 
-    public ItemIOConnection(String slaveName, int index, ItemIOConnection.IOType type) {
+    public ItemIOConnection(String slaveName, int index, ItemIOConnection.IOType type,
+            List<Class<? extends Command>> acceptedCommandTypes, List<Class<? extends State>> acceptedDataTypes) {
         this.slaveName = slaveName;
         this.index = index;
         this.type = type;
-        this.trigger = TRIGGER_DEFAULT;
-        this.transformation = Transformation.IDENTITY_TRANSFORMATION;
-        this.valueType = VALUETYPE_DEFAULT;
-    }
-
-    public ItemIOConnection(String slaveName, int index, ItemIOConnection.IOType type, String trigger) {
-        this(slaveName, index, type);
-        this.trigger = trigger;
-        this.transformation = Transformation.IDENTITY_TRANSFORMATION;
-        this.valueType = VALUETYPE_DEFAULT;
+        this.acceptedCommandTypes = acceptedCommandTypes;
+        this.acceptedDataTypes = acceptedDataTypes;
     }
 
     public ItemIOConnection(String slaveName, int index, ItemIOConnection.IOType type, String trigger,
-            Transformation transformation, String valueType) {
-        this(slaveName, index, type, trigger);
+            List<Class<? extends Command>> acceptedCommandTypes, List<Class<? extends State>> acceptedDataTypes) {
+        this(slaveName, index, type, acceptedCommandTypes, acceptedDataTypes);
+        this.trigger = trigger;
+        this.acceptedCommandTypes = acceptedCommandTypes;
+        this.acceptedDataTypes = acceptedDataTypes;
+    }
+
+    public ItemIOConnection(String slaveName, int index, ItemIOConnection.IOType type, String trigger,
+            Transformation transformation, String valueType, List<Class<? extends Command>> acceptedCommandTypes,
+            List<Class<? extends State>> acceptedDataTypes) {
+        this(slaveName, index, type, trigger, acceptedCommandTypes, acceptedDataTypes);
         this.transformation = transformation;
         this.valueType = valueType;
+        this.acceptedCommandTypes = acceptedCommandTypes;
+        this.acceptedDataTypes = acceptedDataTypes;
     }
 
     public String getSlaveName() {
@@ -161,8 +180,26 @@ public class ItemIOConnection {
         return POLL_STATE_CHANGE_TRIGGER.equalsIgnoreCase(trigger);
     }
 
+    /**
+     * Deprecated. Use the version without parameters instead.
+     *
+     * Returns the value type configured in this instance. If the configured value type is default,
+     * argument is returned as is.
+     *
+     * @param defaultValueType
+     * @return
+     */
+    @Deprecated
     public String getEffectiveValueType(String defaultValueType) {
         return VALUETYPE_DEFAULT.equalsIgnoreCase(this.valueType) ? defaultValueType : this.valueType;
+    }
+
+    public String getEffectiveValueType() {
+        if (VALUETYPE_DEFAULT.equalsIgnoreCase(this.valueType)) {
+            throw new IllegalStateException("Valuetype=default not supported");
+        } else {
+            return this.valueType;
+        }
     }
 
     public Transformation getTransformation() {
@@ -207,19 +244,43 @@ public class ItemIOConnection {
      *            whether to update unchanged if this.trigger is default
      * @return true if processing is supported.
      */
+    @Deprecated
     public boolean supportsState(State state, boolean changed, boolean slaveUpdateUnchanged) {
-        if (this.type.equals(IOType.COMMAND)) {
-            return false;
-        } else if (getTrigger().equals("*")) {
-            return true;
-        } else if (isTriggerDefault()) {
-            if (changed) {
+        return supportsState(state, slaveUpdateUnchanged, changed_ -> {
+            if (changed_) {
                 // Value changed, "default" trigger is to update the state
                 return true;
             } else {
                 // Value not changed, update only if slave updates unchanged items
                 return slaveUpdateUnchanged;
             }
+        });
+    }
+
+    /**
+     * Check if this configuration "supports" the given State.
+     *
+     * If return value is true, the processing should continue with this {@link ItemIOConnection}
+     *
+     * @param state
+     *            for which to check if we can process.
+     * @param changed
+     *            whether values was changed
+     * @return true if processing is supported.
+     *
+     * @throws IllegalStateException when trigger is default
+     */
+    public boolean supportsState(State state, boolean changed) {
+        return supportsState(state, changed, RAISE_ILLEGAL_STATE_EXCEPTION);
+    }
+
+    protected boolean supportsState(State state, boolean changed, UnaryOperator<Boolean> handleDefaultTrigger) {
+        if (this.type.equals(IOType.COMMAND)) {
+            return false;
+        } else if (getTrigger().equals("*")) {
+            return true;
+        } else if (isTriggerDefault()) {
+            return handleDefaultTrigger.apply(changed);
         } else if (isTriggerOnPolledStateChange()) {
             return changed;
         } else {
@@ -241,12 +302,34 @@ public class ItemIOConnection {
             return false;
         } else if (getTrigger().equals("*")) {
             return true;
-        } else if (getTrigger().equals(TRIGGER_DEFAULT)) {
+        } else if (isTriggerDefault()) {
             return true;
         } else {
             return trigger.equalsIgnoreCase(command.toString());
         }
     }
+
+    public boolean supportBooleanLikeState() {
+        return getAcceptedDataTypes().stream().anyMatch(clz -> {
+            return clz.equals(SwitchItem.class) || clz.equals(ContactItem.class);
+        });
+    }
+    //
+    // /**
+    // * For backwards compatibility with 1.x binding
+    // *
+    // * @param defaultTriggerReplacement
+    // * @param defaultValueTypeReplacement
+    // * @return
+    // */
+    // @Deprecated
+    // public ItemIOConnection cloneWithDefaultsReplaced(String defaultTriggerReplacement,
+    // String defaultValueTypeReplacement) {
+    // return new ItemIOConnection(slaveName, index, type, isTriggerDefault() ? defaultTriggerReplacement : trigger,
+    // transformation,
+    // VALUETYPE_DEFAULT.equalsIgnoreCase(this.valueType) ? defaultValueTypeReplacement : valueType,
+    // acceptedCommandTypes, acceptedDataTypes);
+    // }
 
     /**
      * for testing
@@ -282,6 +365,14 @@ public class ItemIOConnection {
         return new ToStringBuilder(this, toStringStyle).append("slaveName", slaveName).append("index", index)
                 .append("type", type).append("trigger", trigger).append("transformation", transformation)
                 .append("valueType", valueType).toString();
+    }
+
+    public List<Class<? extends Command>> getAcceptedCommandTypes() {
+        return acceptedCommandTypes;
+    }
+
+    public List<Class<? extends State>> getAcceptedDataTypes() {
+        return acceptedDataTypes;
     }
 
 }

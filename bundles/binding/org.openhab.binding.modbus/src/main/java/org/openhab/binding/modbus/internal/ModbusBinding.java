@@ -73,7 +73,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
      * Default 60ms for TCP slaves, Siemens S7 1212 PLC couldn't handle faster
      * requests with default settings.
      */
-    private static final long DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS = 60;
+    public static final long DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS = 60;
 
     /**
      * Time to wait between connection passive+borrow, i.e. time to wait between
@@ -81,7 +81,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
      * Default 35ms for Serial slaves, motivation discussed
      * here https://community.openhab.org/t/connection-pooling-in-modbus-binding/5246/111?u=ssalonen
      */
-    private static final long DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS = 35;
+    public static final long DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS = 35;
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusBinding.class);
 
@@ -224,6 +224,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
      * @param registers data received from slave device in the last pollInterval
      * @param itemName item to update
      */
+    @SuppressWarnings("deprecation")
     protected void internalUpdateItem(String slaveName, InputRegister[] registers, String itemName) {
         for (ModbusBindingProvider provider : providers) {
             if (!provider.providesBindingFor(itemName)) {
@@ -236,12 +237,14 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
                 String slaveValueType = slave.getValueType();
                 double rawDataMultiplier = slave.getRawDataMultiplier();
 
+                @SuppressWarnings("deprecation")
                 String valueType = connection.getEffectiveValueType(slaveValueType);
 
                 /* receive data manipulation */
                 State newState = extractStateFromRegisters(registers, connection.getIndex(), valueType);
                 // Convert newState (DecimalType) to on/off kind of state if we have "boolean item" (Switch, Contact
                 // etc). In other cases (such as Number items) newStateBoolean will be UNDEF
+                @SuppressWarnings("deprecation")
                 State newStateBoolean = provider.getConfig(itemName).translateBoolean2State(
                         connection.getPreviouslyPolledState(), !newState.equals(DecimalType.ZERO));
                 // If we have boolean item (newStateBoolean is not UNDEF)
@@ -277,6 +280,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
      * @param error
      * @param itemName item to update
      */
+    @SuppressWarnings("deprecation")
     protected void internalUpdateReadErrorItem(String slaveName, Exception error, String itemName) {
         ModbusSlave slave = modbusSlaves.get(slaveName);
         if (!slave.isPostUndefinedOnReadError()) {
@@ -352,7 +356,7 @@ public class ModbusBinding extends AbstractActiveBinding<ModbusBindingProvider> 
      * @throws IndexOutOfBoundsException when <tt>index</tt> is out of bounds of registers
      *
      */
-    private DecimalType extractStateFromRegisters(InputRegister[] registers, int index, String type) {
+    public static DecimalType extractStateFromRegisters(InputRegister[] registers, int index, String type) {
         if (type.equals(ModbusBindingProvider.VALUE_TYPE_BIT)) {
             return new DecimalType((registers[index / 16].toUnsignedShort() >> (index % 16)) & 1);
         } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_INT8)) {

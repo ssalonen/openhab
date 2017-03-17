@@ -3,6 +3,9 @@
 	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
 	<classpathentry kind="src" path="src/main/java"/>
 	<classpathentry exported="true" kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="lib/commons-pool2-2.4.2.jar"/>	
+	<classpathentry kind="lib" path="lib/commons-pool2-2.4.2.jar"/>
+	<classpathentry kind="lib" path="/org.openhab.binding.modbus.test/lib/slf4j-simple-1.7.5.jar"/>
+	<classpathentry kind="lib" path="/org.openhab.binding.modbus.test/lib/slf4j-jdk14-1.6.4.jar"/>
+	<classpathentry kind="lib" path="/Users/salsam/.m2/repository/org/slf4j/slf4j-api/1.7.12/slf4j-api-1.7.12.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

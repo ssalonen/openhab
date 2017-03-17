@@ -12,6 +12,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -67,6 +68,7 @@ public class ModbusSlaveConnectionFactoryImpl
     private volatile Map<ModbusSlaveEndpoint, Long> lastPassivateMillis = new ConcurrentHashMap<>();
     private volatile Map<ModbusSlaveEndpoint, Long> lastConnectMillis = new ConcurrentHashMap<>();
     private volatile Map<ModbusSlaveEndpoint, Long> disconnectIfConnectedBefore = new ConcurrentHashMap<>();
+    private volatile Function<ModbusSlaveEndpoint, EndpointPoolConfiguration> defaultPoolConfigurationFactory = endpoint -> null;
 
     private InetAddress getInetAddress(ModbusIPSlaveEndpoint key) {
         try {
@@ -94,7 +96,7 @@ public class ModbusSlaveConnectionFactoryImpl
                 if (address == null) {
                     return null;
                 }
-                EndpointPoolConfiguration config = endpointPoolConfigs.get(key);
+                EndpointPoolConfiguration config = getEndpointPoolConfiguration(key);
                 int connectTimeoutMillis = 0;
                 if (config != null) {
                     connectTimeoutMillis = config.getConnectTimeoutMillis();
@@ -136,7 +138,7 @@ public class ModbusSlaveConnectionFactoryImpl
         }
         try {
             ModbusSlaveConnection connection = obj.getObject();
-            EndpointPoolConfiguration config = endpointPoolConfigs.get(endpoint);
+            EndpointPoolConfiguration config = getEndpointPoolConfiguration(endpoint);
 
             if (connection.isConnected()) {
                 if (config != null) {
@@ -191,12 +193,19 @@ public class ModbusSlaveConnectionFactoryImpl
         return valid;
     }
 
-    public Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> getEndpointPoolConfigs() {
-        return endpointPoolConfigs;
+    public void setEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint, EndpointPoolConfiguration config) {
+        endpointPoolConfigs.put(endpoint, config);
     }
 
-    public void applyEndpointPoolConfigs(Map<ModbusSlaveEndpoint, EndpointPoolConfiguration> endpointPoolConfigs) {
-        this.endpointPoolConfigs = new ConcurrentHashMap<>(endpointPoolConfigs);
+    public EndpointPoolConfiguration getEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint) {
+        EndpointPoolConfiguration config = endpointPoolConfigs.computeIfAbsent(endpoint,
+                defaultPoolConfigurationFactory);
+        return config;
+    }
+
+    public void setDefaultPoolConfigurationFactory(
+            Function<ModbusSlaveEndpoint, EndpointPoolConfiguration> defaultPoolConfigurationFactory) {
+        this.defaultPoolConfigurationFactory = defaultPoolConfigurationFactory;
     }
 
     private void tryConnect(ModbusSlaveEndpoint endpoint, PooledObject<ModbusSlaveConnection> obj,
