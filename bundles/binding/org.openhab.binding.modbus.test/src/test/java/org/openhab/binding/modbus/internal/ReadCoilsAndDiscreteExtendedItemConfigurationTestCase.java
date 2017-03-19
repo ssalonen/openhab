@@ -46,6 +46,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
 
     private ModbusGenericBindingProvider provider;
     private String type;
+    private Dictionary<String, Object> config;
 
     @Parameters
     public static Collection<Object[]> parameters() {
@@ -78,12 +79,12 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
 
     @Before
     public void initSlaveAndServer() throws Exception {
+        reset(eventPublisher);
         addBinary(false);
         addBinary(true);
         binding = new ModbusBinding();
-        Dictionary<String, Object> config = newLongPollBindingConfig();
+        config = newLongPollBindingConfig();
         addSlave(config, SLAVE_NAME, type, null, 0, 2);
-        binding.updated(config);
 
         provider = new ModbusGenericBindingProvider();
 
@@ -96,7 +97,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:0:trigger=ON]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -108,7 +109,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:0:trigger=OFF]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -121,7 +122,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:1:trigger=ON]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -134,7 +135,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:1:trigger=ON]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -174,7 +175,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -213,7 +214,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -264,7 +265,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -274,7 +275,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
         verifyNoMoreInteractions(eventPublisher);
 
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
 
         waitForConnectionsReceived(2);
         waitForRequests(2);
@@ -286,7 +287,7 @@ public class ReadCoilsAndDiscreteExtendedItemConfigurationTestCase extends TestC
         setBinary(0, true);
 
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
 
         waitForConnectionsReceived(3);
         waitForRequests(3);

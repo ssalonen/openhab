@@ -10,11 +10,11 @@ package org.openhab.binding.modbus.internal;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.pool2.KeyedObjectPool;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +22,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import org.openhab.binding.modbus.ModbusBindingProvider;
-import org.openhab.binding.modbus.internal.pooling.ModbusSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusTCPSlaveEndpoint;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.types.Command;
@@ -90,7 +89,7 @@ public class SimultaneousReadWriteTestCase extends TestCaseSupport {
 
         @Override
         public void run() {
-            binding.execute();
+            binding.pollAllScheduledNow();
         }
     }
 
@@ -124,8 +123,6 @@ public class SimultaneousReadWriteTestCase extends TestCaseSupport {
     @Test
     public void testSimultaneousReadWrite() throws Exception {
         binding = new ModbusBinding();
-        binding.updated(addSlave(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, 0, READ_COUNT),
-                SLAVE2_NAME, type, null, 0, READ_COUNT));
         configureItems(SLAVE_NAME);
         configureItems(SLAVE2_NAME);
 
@@ -137,7 +134,9 @@ public class SimultaneousReadWriteTestCase extends TestCaseSupport {
          */
         int expectedRequests = 10;
         ExecutorService pool = Executors.newFixedThreadPool(expectedRequests);
-        binding.execute();
+        binding.updated(addSlave(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, 0, READ_COUNT),
+                SLAVE2_NAME, type, null, 0, READ_COUNT));
+
         pool.execute(new UpdateThread(binding));
         pool.execute(new WriteCommandThread(binding, SLAVE_NAME, command));
         pool.execute(new UpdateThread(binding));
@@ -166,19 +165,20 @@ public class SimultaneousReadWriteTestCase extends TestCaseSupport {
 
     @Test
     public void testPoolBlocks() throws Exception {
-        final KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> pool = ModbusBinding
-                .getReconstructedConnectionPoolForTesting();
+        // final KeyedObjectPool<ModbusSlaveEndpoint, ModbusSlaveConnection> pool = ModbusBinding
+        // .getReconstructedConnectionPoolForTesting();
 
         final ModbusTCPSlaveEndpoint endpoint = new ModbusTCPSlaveEndpoint(localAddress().getHostAddress(),
                 this.tcpModbusPort);
+        ModbusManagerImpl manager = new ModbusManagerImpl();
 
-        ModbusSlaveConnection borrowObject = pool.borrowObject(endpoint);
+        Optional<ModbusSlaveConnection> connection = manager.borrowConnection(endpoint);
         Thread thread = new Thread() {
             @Override
             public void run() {
                 try {
-                    ModbusSlaveConnection borrowObject2 = pool.borrowObject(endpoint);
-                    pool.returnObject(endpoint, borrowObject2);
+                    Optional<ModbusSlaveConnection> connection = manager.borrowConnection(endpoint);
+                    manager.returnConnection(endpoint, connection);
                 } catch (Exception e) {
                     e.printStackTrace(System.err);
                 }
@@ -192,10 +192,10 @@ public class SimultaneousReadWriteTestCase extends TestCaseSupport {
             thread.interrupt();
         }
 
-        pool.returnObject(endpoint, borrowObject);
+        manager.returnConnection(endpoint, connection);
         // Now that object has been returned, borrowing should work again
-        ModbusSlaveConnection borrowObject2 = pool.borrowObject(endpoint);
-        pool.returnObject(endpoint, borrowObject2);
+        Optional<ModbusSlaveConnection> connection2 = manager.borrowConnection(endpoint);
+        manager.returnConnection(endpoint, connection2);
 
     }
 

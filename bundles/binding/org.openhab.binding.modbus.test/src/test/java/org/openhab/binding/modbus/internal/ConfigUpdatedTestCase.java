@@ -68,14 +68,15 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         spi.addDigitalIn(new SimpleDigitalIn(false));
 
         binding = new ModbusBinding();
+        configureSwitchItemBinding(2, SLAVE_NAME, 0);
 
         // simulate configuration changes
         for (int i = 0; i < 2; i++) {
             binding.updated(
                     addSlave(newLongPollBindingConfig(), SLAVE_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2));
         }
-        configureSwitchItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
+
+        binding.pollAllScheduledNow();
 
         // Give the system some time to make the expected connections & requests
         waitForRequests(1);
@@ -119,6 +120,7 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         spi.addDigitalIn(new SimpleDigitalIn(false));
 
         binding = new ModbusBinding();
+        configureSwitchItemBinding(2, SLAVE_NAME, 0);
 
         // Customized connection settings, keep the connection open for 2000s, no connection retries, 300ms connection
         // timeout
@@ -128,13 +130,11 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         putSlaveConfigParameter(cfg, serverType, SLAVE_NAME, "updateunchangeditems", "true");
         binding.updated(cfg);
 
-        configureSwitchItemBinding(2, SLAVE_NAME, 0);
-
         Thread executeOnBackground = new Thread(new Runnable() {
             @Override
             public void run() {
                 logger.info("First execution started");
-                binding.execute();
+                binding.pollAllScheduledNow();
                 logger.info("First execution finished");
             }
         });
@@ -155,7 +155,7 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
 
         // Polling should work after config update
         logger.info("Second execution started");
-        binding.execute();
+        binding.pollAllScheduledNow();
         logger.info("Second execution finished");
 
         // three requests, two of those due to execute() commands in this test,

@@ -57,9 +57,6 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         spi.addDigitalOut(new SimpleDigitalOut(false));
 
         binding = new ModbusBinding();
-        Dictionary<String, Object> config = newLongPollBindingConfig();
-        addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2);
-        binding.updated(config);
 
         // Configure items
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
@@ -68,7 +65,9 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         binding.setEventPublisher(eventPublisher);
         binding.addBindingProvider(provider);
 
-        binding.execute();
+        Dictionary<String, Object> config = newLongPollBindingConfig();
+        addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2);
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -96,8 +95,6 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
                 ModbusBindingProvider.TYPE_DISCRETE, null, 0, 0, 2);
         putSlaveConfigParameter(config, serverType, SLAVE_NAME, "postundefinedonreaderror", "true");
 
-        binding.updated(config);
-
         // Configure items
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
@@ -105,11 +102,13 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         binding.setEventPublisher(eventPublisher);
         binding.addBindingProvider(provider);
 
+        binding.updated(config);
+
         final CountDownLatch lock = new CountDownLatch(1);
         Thread thread = new Thread() {
             @Override
             public void run() {
-                binding.execute();
+                binding.pollAllScheduledNow();
                 lock.countDown();
             };
         };
@@ -139,7 +138,6 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         Dictionary<String, Object> config = newLongPollBindingConfig();
         addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2);
         putSlaveConfigParameter(config, serverType, SLAVE_NAME, "postundefinedonreaderror", "true");
-        binding.updated(config);
 
         // Configure items
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
@@ -148,7 +146,7 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         binding.setEventPublisher(eventPublisher);
         binding.addBindingProvider(provider);
 
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -182,10 +180,6 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         spi.addDigitalIn(new SimpleDigitalIn(true));
 
         binding = new ModbusBinding();
-        Dictionary<String, Object> config = newLongPollBindingConfig();
-        addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_COIL, null, 0, 2);
-        addSlave(config, SLAVE2_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2);
-        binding.updated(config);
 
         // Configure items
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
@@ -198,7 +192,10 @@ public class ErroringQueriesTestCase extends TestCaseSupport {
         binding.setEventPublisher(eventPublisher);
         binding.addBindingProvider(provider);
 
-        binding.execute();
+        Dictionary<String, Object> config = newLongPollBindingConfig();
+        addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_COIL, null, 0, 2);
+        addSlave(config, SLAVE2_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2);
+        binding.updated(config);
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(2);

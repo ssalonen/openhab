@@ -8,10 +8,13 @@ public interface ModbusManager {
     public interface PollTask {
         // metadata, e.g. last polled?
         ModbusSlaveEndpoint getEndpoint();
+
+        ModbusReadRequestBlueprint getMessage();
+
+        ReadCallback getCallback();
     }
 
-    public void executeOneTimePoll(ModbusSlaveEndpoint endpoint, ModbusReadRequestBlueprint message,
-            ReadCallback callback);
+    public void executeOneTimePoll(PollTask task);
 
     /**
      *
@@ -19,15 +22,14 @@ public interface ModbusManager {
      * @param message
      * @param config
      * @param pollPeriodMillis
+     * @param initialDelayMillis
      * @return string identifier for the poll
      */
-    public PollTask registerRegularPoll(ModbusSlaveEndpoint endpoint, ModbusReadRequestBlueprint message,
-            long pollPeriodMillis, ReadCallback callback);
+    void registerRegularPoll(PollTask task, long pollPeriodMillis, long initialDelayMillis);
 
     public boolean unregisterRegularPoll(PollTask task);
 
-    public void writeCommand(ModbusSlaveEndpoint endpoint, ModbusWriteRequestBlueprint message,
-            WriteCallback callback);
+    public void writeCommand(ModbusSlaveEndpoint endpoint, ModbusWriteRequestBlueprint message, WriteCallback callback);
 
     /**
      * Configure general connection settings with a given endpoint

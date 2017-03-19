@@ -46,6 +46,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
 
     private ModbusGenericBindingProvider provider;
     private String type;
+    private Dictionary<String, Object> config;
 
     @Parameters
     public static Collection<Object[]> parameters() {
@@ -87,10 +88,9 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
 
         binding = new ModbusBinding();
 
-        Dictionary<String, Object> config = newLongPollBindingConfig();
+        config = newLongPollBindingConfig();
 
         addSlave(config, SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_INT16, 0, 6);
-        binding.updated(config);
         // Configure items
 
         provider = new ModbusGenericBindingProvider();
@@ -104,7 +104,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:1:trigger=*]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -117,7 +117,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:1:trigger=*]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -130,7 +130,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:1:trigger=5]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -144,7 +144,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
         // trigger 999 does not match the state 9
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:1:trigger=999]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -156,7 +156,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:0:trigger=*,valueType=int32]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -170,7 +170,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format("<[%s:2:trigger=*,valueType=float32]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -184,7 +184,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:1:trigger=*]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -197,7 +197,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:1:type=STATE,trigger=ON]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -210,7 +210,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:2:trigger=OFF]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -223,7 +223,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             throws UnknownHostException, ConfigurationException, BindingConfigParseException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format("<[%s:1:trigger=OFF]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -260,7 +260,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -298,7 +298,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -307,7 +307,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
 
         // Execute again, since updates unchanged a new event should be sent
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
         waitForConnectionsReceived(2);
         waitForRequests(2);
         verify(eventPublisher).postUpdate("Item1", new StringType("foobar_25"));
@@ -344,7 +344,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -353,7 +353,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
 
         // Execute again, since does not update unchanged (slave default) *NO* new event should be sent
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
         waitForConnectionsReceived(2);
         waitForRequests(2);
         verifyNoMoreInteractions(eventPublisher);
@@ -402,7 +402,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
 
         waitForConnectionsReceived(1);
         waitForRequests(1);
@@ -412,7 +412,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
         verifyNoMoreInteractions(eventPublisher);
 
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
 
         waitForConnectionsReceived(2);
         waitForRequests(2);
@@ -424,7 +424,7 @@ public class ReadRegistersExtendedItemConfigurationTestCase extends TestCaseSupp
         setRegister(2, 5);
 
         reset(eventPublisher);
-        binding.execute();
+        binding.pollAllScheduledNow();
 
         waitForConnectionsReceived(3);
         waitForRequests(3);

@@ -26,6 +26,7 @@ import org.openhab.core.transform.TransformationException;
 import org.openhab.core.transform.TransformationService;
 import org.openhab.model.item.binding.BindingConfigParseException;
 import org.osgi.framework.BundleContext;
+import org.osgi.service.cm.ConfigurationException;
 
 import net.wimpi.modbus.procimg.SimpleDigitalOut;
 
@@ -36,6 +37,7 @@ import net.wimpi.modbus.procimg.SimpleDigitalOut;
 public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport {
 
     private ModbusGenericBindingProvider provider;
+    private Dictionary<String, Object> config;
 
     @Before
     public void initSlaveAndServer() throws Exception {
@@ -43,9 +45,9 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
         spi.addDigitalOut(new SimpleDigitalOut(false));
         //
         binding = new ModbusBinding();
-        Dictionary<String, Object> config = newLongPollBindingConfig();
+        config = newLongPollBindingConfig();
         addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_COIL, null, 0, 2);
-        binding.updated(config);
+
         // Configure items
 
         provider = new ModbusGenericBindingProvider();
@@ -55,7 +57,7 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
     }
 
     @Test
-    public void testWriteCoilItemManyConnections() throws BindingConfigParseException {
+    public void testWriteCoilItemManyConnections() throws BindingConfigParseException, ConfigurationException {
         // Inspired by https://github.com/openhab/openhab/issues/4745
         // item reads from coil index 0, and writes to coil index 1. Both ON and OFF are translated to "true" on the
         // wire
@@ -63,7 +65,7 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
                 String.format(
                         "<[%1$s:0:trigger=*],>[%1$s:1:trigger=ON,transformation=1],>[%1$s:1:trigger=OFF,transformation=1]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
         waitForConnectionsReceived(1);
         waitForRequests(1);
         verify(eventPublisher).postUpdate("Item1", OnOffType.ON);
@@ -89,7 +91,8 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
     }
 
     @Test
-    public void testWriteCoilItemNonNumericConstantTransformationManyConnections() throws BindingConfigParseException {
+    public void testWriteCoilItemNonNumericConstantTransformationManyConnections()
+            throws BindingConfigParseException, ConfigurationException {
         // Inspired by https://github.com/openhab/openhab/issues/4745
         // item reads from coil index 0, and writes to coil index 1. Both ON and OFF are translated to "true" on the
         // wire
@@ -97,7 +100,7 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
                 String.format(
                         "<[%1$s:0:trigger=*],>[%1$s:1:trigger=ON,transformation=ON],>[%1$s:1:trigger=OFF,transformation=ON]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
         waitForConnectionsReceived(1);
         waitForRequests(1);
         verify(eventPublisher).postUpdate("Item1", OnOffType.ON);
@@ -114,10 +117,10 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
     }
 
     @Test
-    public void testCoilWriteFiltered() throws BindingConfigParseException {
+    public void testCoilWriteFiltered() throws BindingConfigParseException, ConfigurationException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"),
                 String.format(">[%1$s:1:trigger=ON]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
         waitForConnectionsReceived(1);
         waitForRequests(1);
         verifyNoMoreInteractions(eventPublisher);
@@ -140,7 +143,8 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
     }
 
     @Test
-    public void testRegisterStringItemWriteNumberItemComplexTransformation() throws BindingConfigParseException {
+    public void testRegisterStringItemWriteNumberItemComplexTransformation()
+            throws BindingConfigParseException, ConfigurationException {
 
         provider.processBindingConfiguration("test.items", new StringItem("Item1"),
                 String.format(">[%1$s:1:trigger=*,transformation=PARSEBOOL()]", SLAVE_NAME));
@@ -176,7 +180,7 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("T"));
         assertThat(spi.getDigitalOut(0).isSet(), is(equalTo(true)));

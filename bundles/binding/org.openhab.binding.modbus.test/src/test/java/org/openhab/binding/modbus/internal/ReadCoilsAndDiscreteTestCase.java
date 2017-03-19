@@ -117,9 +117,8 @@ public class ReadCoilsAndDiscreteTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructBoolStore.newInstance(false));
 
         binding = new ModbusBinding();
-        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, nonZeroOffset ? 1 : 0, 2));
         configureSwitchItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
+        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, nonZeroOffset ? 1 : 0, 2));
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);

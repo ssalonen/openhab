@@ -60,6 +60,8 @@ import net.wimpi.modbus.util.SerialParameters;
 
 public class TestCaseSupport {
 
+    private static final long SLEEP_AFTER_REQUEST = 100;
+
     public enum ServerType {
         TCP,
         UDP,
@@ -210,7 +212,6 @@ public class TestCaseSupport {
 
     protected void configureSwitchItemBinding(int items, String slaveName, int itemOffset, String itemPrefix,
             State initialState) throws BindingConfigParseException {
-        Assert.assertEquals(REFRESH_INTERVAL, binding.getRefreshInterval());
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
         for (int itemIndex = itemOffset; itemIndex < items + itemOffset; itemIndex++) {
             SwitchItem item = new SwitchItem(String.format("%sItem%d", itemPrefix, itemIndex + 1));
@@ -230,7 +231,6 @@ public class TestCaseSupport {
 
     protected void configureNumberItemBinding(int items, String slaveName, int itemOffset, String itemPrefix,
             State initialState) throws BindingConfigParseException {
-        Assert.assertEquals(REFRESH_INTERVAL, binding.getRefreshInterval());
         final ModbusGenericBindingProvider provider = new ModbusGenericBindingProvider();
         for (int itemIndex = itemOffset; itemIndex < items + itemOffset; itemIndex++) {
             NumberItem item = new NumberItem(String.format("%sItem%d", itemPrefix, itemIndex + 1));
@@ -300,6 +300,13 @@ public class TestCaseSupport {
                 }
                 continue;
             }
+            try {
+                // Sleep in order to have some time for binding to process the event
+                Thread.sleep(SLEEP_AFTER_REQUEST);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
             // OK!
             return;
         }
@@ -333,6 +340,13 @@ public class TestCaseSupport {
                     throw new AssertionError("test interrupted");
                 }
                 continue;
+            }
+            try {
+                // Sleep in order to have some time for binding to process the event
+                Thread.sleep(SLEEP_AFTER_REQUEST);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
             // OK!
             return;

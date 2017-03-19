@@ -16,8 +16,8 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.openhab.core.library.items.ContactItem;
-import org.openhab.core.library.items.SwitchItem;
+import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 
@@ -91,6 +91,16 @@ public class ItemIOConnection {
     private String valueType = VALUETYPE_DEFAULT;
 
     /**
+     * Command types used in transformations
+     */
+    private List<Class<? extends Command>> acceptedCommandTypes;
+
+    /**
+     * State types used in transformations
+     */
+    private List<Class<? extends State>> acceptedDataTypes;
+
+    /**
      * Previously polled state(s) of Item, converted to state as defined by ItemIOConnection. Initialized to null so
      * that
      * UnDefType.UNDEF (which might be transmitted
@@ -105,9 +115,6 @@ public class ItemIOConnection {
      * Value of zero is used for connections that have no polls at all yet.
      */
     private long pollNumber = 0;
-
-    private List<Class<? extends Command>> acceptedCommandTypes;
-    private List<Class<? extends State>> acceptedDataTypes;
 
     private static final UnaryOperator<Boolean> RAISE_ILLEGAL_STATE_EXCEPTION = polledValuedChanged -> {
         throw new IllegalStateException("Trigger=default not supported");
@@ -231,31 +238,31 @@ public class ItemIOConnection {
         this.polledState = state;
     }
 
-    /**
-     * Check if this configuration "supports" the given State.
-     *
-     * If return value is true, the processing should continue with this {@link ItemIOConnection}
-     *
-     * @param state
-     *            for which to check if we can process.
-     * @param changed
-     *            whether values was changed
-     * @param slaveUpdateUnchanged
-     *            whether to update unchanged if this.trigger is default
-     * @return true if processing is supported.
-     */
-    @Deprecated
-    public boolean supportsState(State state, boolean changed, boolean slaveUpdateUnchanged) {
-        return supportsState(state, slaveUpdateUnchanged, changed_ -> {
-            if (changed_) {
-                // Value changed, "default" trigger is to update the state
-                return true;
-            } else {
-                // Value not changed, update only if slave updates unchanged items
-                return slaveUpdateUnchanged;
-            }
-        });
-    }
+    // /**
+    // * Check if this configuration "supports" the given State.
+    // *
+    // * If return value is true, the processing should continue with this {@link ItemIOConnection}
+    // *
+    // * @param state
+    // * for which to check if we can process.
+    // * @param changed
+    // * whether values was changed
+    // * @param slaveUpdateUnchanged
+    // * whether to update unchanged if this.trigger is default
+    // * @return true if processing is supported.
+    // */
+    // @Deprecated
+    // public boolean supportsState(State state, boolean changed, boolean slaveUpdateUnchanged) {
+    // return supportsState(state, slaveUpdateUnchanged, changed_ -> {
+    // if (changed_) {
+    // // Value changed, "default" trigger is to update the state
+    // return true;
+    // } else {
+    // // Value not changed, update only if slave updates unchanged items
+    // return slaveUpdateUnchanged;
+    // }
+    // });
+    // }
 
     /**
      * Check if this configuration "supports" the given State.
@@ -311,25 +318,25 @@ public class ItemIOConnection {
 
     public boolean supportBooleanLikeState() {
         return getAcceptedDataTypes().stream().anyMatch(clz -> {
-            return clz.equals(SwitchItem.class) || clz.equals(ContactItem.class);
+            return clz.equals(OnOffType.class) || clz.equals(OpenClosedType.class);
         });
     }
-    //
-    // /**
-    // * For backwards compatibility with 1.x binding
-    // *
-    // * @param defaultTriggerReplacement
-    // * @param defaultValueTypeReplacement
-    // * @return
-    // */
-    // @Deprecated
-    // public ItemIOConnection cloneWithDefaultsReplaced(String defaultTriggerReplacement,
-    // String defaultValueTypeReplacement) {
-    // return new ItemIOConnection(slaveName, index, type, isTriggerDefault() ? defaultTriggerReplacement : trigger,
-    // transformation,
-    // VALUETYPE_DEFAULT.equalsIgnoreCase(this.valueType) ? defaultValueTypeReplacement : valueType,
-    // acceptedCommandTypes, acceptedDataTypes);
-    // }
+
+    /**
+     * For backwards compatibility with 1.x binding
+     *
+     * @param defaultTriggerReplacement
+     * @param defaultValueTypeReplacement
+     * @return
+     */
+    @Deprecated
+    public ItemIOConnection cloneWithDefaultsReplaced(String defaultTriggerReplacement,
+            String defaultValueTypeReplacement) {
+        return new ItemIOConnection(slaveName, index, type, isTriggerDefault() ? defaultTriggerReplacement : trigger,
+                transformation,
+                VALUETYPE_DEFAULT.equalsIgnoreCase(this.valueType) ? defaultValueTypeReplacement : valueType,
+                acceptedCommandTypes, acceptedDataTypes);
+    }
 
     /**
      * for testing
@@ -348,7 +355,8 @@ public class ItemIOConnection {
         ItemIOConnection other = (ItemIOConnection) obj;
         return new EqualsBuilder().append(slaveName, other.slaveName).append(index, other.index)
                 .append(type, other.type).append(trigger, other.trigger).append(transformation, other.transformation)
-                .append(valueType, other.valueType).isEquals();
+                .append(valueType, other.valueType).append(acceptedCommandTypes, other.acceptedCommandTypes)
+                .append(acceptedDataTypes, other.acceptedDataTypes).isEquals();
     }
 
     /**
@@ -357,14 +365,16 @@ public class ItemIOConnection {
     @Override
     public int hashCode() {
         return new HashCodeBuilder(91, 131).append(slaveName).append(index).append(type).append(trigger)
-                .append(transformation).append(valueType).toHashCode();
+                .append(transformation).append(valueType).append(acceptedCommandTypes).append(acceptedDataTypes)
+                .toHashCode();
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, toStringStyle).append("slaveName", slaveName).append("index", index)
                 .append("type", type).append("trigger", trigger).append("transformation", transformation)
-                .append("valueType", valueType).toString();
+                .append("valueType", valueType).append("supportBooleanLikeState()", supportBooleanLikeState())
+                .toString();
     }
 
     public List<Class<? extends Command>> getAcceptedCommandTypes() {

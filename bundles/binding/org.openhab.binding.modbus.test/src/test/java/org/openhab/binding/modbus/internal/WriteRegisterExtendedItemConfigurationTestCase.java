@@ -34,6 +34,7 @@ import org.openhab.core.transform.TransformationException;
 import org.openhab.core.transform.TransformationService;
 import org.openhab.model.item.binding.BindingConfigParseException;
 import org.osgi.framework.BundleContext;
+import org.osgi.service.cm.ConfigurationException;
 
 import net.wimpi.modbus.procimg.SimpleRegister;
 
@@ -44,6 +45,7 @@ import net.wimpi.modbus.procimg.SimpleRegister;
 public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupport {
 
     private ModbusGenericBindingProvider provider;
+    private Dictionary<String, Object> config;
 
     @Before
     public void initSlaveAndServer() throws Exception {
@@ -51,9 +53,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         spi.addRegister(new SimpleRegister(10));
         //
         binding = new ModbusBinding();
-        Dictionary<String, Object> config = newLongPollBindingConfig();
+        config = newLongPollBindingConfig();
         addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_HOLDING, ModbusBindingProvider.VALUE_TYPE_INT16, 0, 2);
-        binding.updated(config);
+
         // Configure items
 
         provider = new ModbusGenericBindingProvider();
@@ -63,14 +65,15 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteRollershutterItemManyConnections() throws BindingConfigParseException {
+    public void testRegisterWriteRollershutterItemManyConnections()
+            throws BindingConfigParseException, ConfigurationException {
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new RollershutterItem("Item1"),
                 String.format(
                         ">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", UpDownType.UP);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(1)));
@@ -78,10 +81,11 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithoutRead() throws BindingConfigParseException {
+    public void testRegisterWriteIncreaseWithoutRead() throws BindingConfigParseException, ConfigurationException {
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:0]", SLAVE_NAME));
+        binding.updated(config);
         // binding.execute(); no read
         verifyNoMoreInteractions(eventPublisher);
         binding.receiveCommand("Item1", IncreaseDecreaseType.INCREASE);
@@ -92,11 +96,13 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithRead() throws BindingConfigParseException {
+    public void testRegisterWriteIncreaseWithRead()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // Read index 1 (value=10) and (INCREASE command) increments it by one -> 11. Written to index 0
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:1]", SLAVE_NAME));
-        binding.execute(); // read
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verify(eventPublisher).postUpdate("Item1", new DecimalType(10));
         verifyNoMoreInteractions(eventPublisher);
 
@@ -106,12 +112,14 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithRead2() throws BindingConfigParseException {
+    public void testRegisterWriteIncreaseWithRead2()
+            throws BindingConfigParseException, InterruptedException, ConfigurationException {
         // Read index 1 (value=10) and index 0 (value=9).
         // INCREASE command increments last read value (9) by one -> 10. Written to index 0
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:1],<[%1$s:0]", SLAVE_NAME));
-        binding.execute(); // read
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verify(eventPublisher).postUpdate("Item1", new DecimalType(10));
         verify(eventPublisher).postUpdate("Item1", new DecimalType(9));
         verifyNoMoreInteractions(eventPublisher);
@@ -124,11 +132,13 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithRead3() throws BindingConfigParseException {
+    public void testRegisterWriteIncreaseWithRead3()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // same as testRegisterWriteIncreaseWithRead2 but order of read connections is flipped
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:0],<[%1$s:1]", SLAVE_NAME));
-        binding.execute(); // read
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verify(eventPublisher).postUpdate("Item1", new DecimalType(10));
         verify(eventPublisher).postUpdate("Item1", new DecimalType(9));
         verifyNoMoreInteractions(eventPublisher);
@@ -141,9 +151,11 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithTransformation() throws BindingConfigParseException {
+    public void testRegisterWriteIncreaseWithTransformation()
+            throws BindingConfigParseException, ConfigurationException {
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0:transformation=3],<[%1$s:0]", SLAVE_NAME));
+        binding.updated(config);
         verifyNoMoreInteractions(eventPublisher);
 
         binding.receiveCommand("Item1", IncreaseDecreaseType.INCREASE);
@@ -154,14 +166,16 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteRollershutterItemManyConnections2() throws BindingConfigParseException {
+    public void testRegisterWriteRollershutterItemManyConnections2()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new RollershutterItem("Item1"),
                 String.format(
                         ">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", UpDownType.DOWN);
         // 65535 is same as -1, the SimpleRegister.getValue just returns the unsigned 16bit representation of the
@@ -171,14 +185,16 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteRollershutterItemManyConnections3() throws BindingConfigParseException {
+    public void testRegisterWriteRollershutterItemManyConnections3()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new RollershutterItem("Item1"),
                 String.format(
                         ">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.MOVE);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
@@ -186,14 +202,16 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteRollershutterItemManyConnections4() throws BindingConfigParseException {
+    public void testRegisterWriteRollershutterItemManyConnections4()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new RollershutterItem("Item1"),
                 String.format(
                         ">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.STOP);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
@@ -201,11 +219,13 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteRollershutterWriteFiltered() throws BindingConfigParseException {
+    public void testRegisterWriteRollershutterWriteFiltered()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         provider.processBindingConfiguration("test.items", new RollershutterItem("Item1"),
                 String.format(">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                         + ",>[%1$s:1:trigger=MOVE,transformation=1]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.STOP);
         // Stop was not processed
@@ -215,10 +235,11 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
 
     @Test
     public void testRegisterWriteSwitchItemNonNumbericTransformationAndTwoRegistersManyConnections4()
-            throws BindingConfigParseException {
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"), String.format(
                 ">[%1$s:0:trigger=OFF,transformation=ON],>[%1$s:1:trigger=OFF,transformation=OFF]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", OnOffType.OFF);
         // two registers were changed at the same time
@@ -227,10 +248,12 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWritePercentTypeWithTransformation() throws BindingConfigParseException {
+    public void testRegisterWritePercentTypeWithTransformation()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format(">[%1$s:0]", SLAVE_NAME));
-        binding.execute();
+        binding.updated(config);
+        Thread.sleep(100); // time for read
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new PercentType("3.4"));
         // percent rounded down
@@ -239,7 +262,8 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteNumberItemComplexTransformation() throws BindingConfigParseException {
+    public void testRegisterWriteNumberItemComplexTransformation()
+            throws BindingConfigParseException, ConfigurationException {
 
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format(">[%1$s:0:trigger=*,transformation=MULTIPLY(3)]", SLAVE_NAME));
@@ -269,7 +293,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new DecimalType("4"));
         // two registers were changed at the same time
@@ -278,7 +302,8 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteNumberItemComplexTransformation2() throws BindingConfigParseException {
+    public void testRegisterWriteNumberItemComplexTransformation2()
+            throws BindingConfigParseException, ConfigurationException {
 
         provider.processBindingConfiguration("test.items", new StringItem("Item1"),
                 String.format(">[%1$s:0:trigger=*,transformation=LEN()]", SLAVE_NAME));
@@ -308,7 +333,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("foob"));
         // two registers were changed at the same time
@@ -317,7 +342,8 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     }
 
     @Test
-    public void testRegisterWriteNumberItemComplexTransformationTwoOutputs() throws BindingConfigParseException {
+    public void testRegisterWriteNumberItemComplexTransformationTwoOutputs()
+            throws BindingConfigParseException, ConfigurationException {
 
         provider.processBindingConfiguration("test.items", new StringItem("Item1"),
                 String.format(">[%1$s:0:transformation=CHAR(0)],>[%1$s:1:transformation=CHAR(1)]", SLAVE_NAME));
@@ -348,7 +374,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
             });
         }
 
-        binding.execute();
+        binding.updated(this.config);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("foob"));
         // two registers were changed at the same time

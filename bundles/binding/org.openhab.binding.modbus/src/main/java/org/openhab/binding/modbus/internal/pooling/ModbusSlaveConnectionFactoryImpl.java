@@ -169,7 +169,7 @@ public class ModbusSlaveConnectionFactoryImpl
         long connected = ((PooledConnection) obj).getLastConnected();
         long reconnectAfterMillis = configuration == null ? 0 : configuration.getReconnectAfterMillis();
         long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
-        long disconnectBeforeConnectedMillis = disconnectIfConnectedBefore.get(endpoint);
+        long disconnectBeforeConnectedMillis = disconnectIfConnectedBefore.getOrDefault(endpoint, Long.MAX_VALUE);
         if (reconnectAfterMillis == 0 || (reconnectAfterMillis > 0 && connectionAgeMillis > reconnectAfterMillis)
                 || connected < disconnectBeforeConnectedMillis) {
             logger.trace(

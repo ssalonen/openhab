@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Dictionary;
 import java.util.List;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -170,10 +169,9 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(4, SLAVE_NAME, 0);
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_INT8,
                 nonZeroOffset ? 1 : 0, 2));
-        configureNumberItemBinding(4, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -219,11 +217,9 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(4, SLAVE_NAME, 0);
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_UINT8,
                 nonZeroOffset ? 1 : 0, 2));
-        Assert.assertEquals(REFRESH_INTERVAL, binding.getRefreshInterval());
-        configureNumberItemBinding(4, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -267,9 +263,8 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
-        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, nonZeroOffset ? 1 : 0, 2));
         configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
+        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, nonZeroOffset ? 1 : 0, 2));
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -301,10 +296,9 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(2, SLAVE_NAME, 0);
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_INT16,
                 nonZeroOffset ? 1 : 0, 2));
-        configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -345,10 +339,9 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
+        configureSwitchItemBinding(32, SLAVE_NAME, 0);
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_BIT,
                 nonZeroOffset ? 1 : 0, 2));
-        configureSwitchItemBinding(32, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -391,11 +384,10 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegister2Byte.newInstance(registerData[2], registerData[3]));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(2, SLAVE_NAME, 0);
         // read 4 registers = 2 uint32 numbers
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_UINT32,
                 nonZeroOffset ? 1 : 0, 4));
-        configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -439,11 +431,10 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegister2Byte.newInstance(registerData[2], registerData[3]));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(2, SLAVE_NAME, 0);
         // read 4 registers = 2 uint32 numbers
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_INT32,
                 nonZeroOffset ? 1 : 0, 4));
-        configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -486,11 +477,10 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegister2Byte.newInstance(registerData[2], registerData[3]));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(2, SLAVE_NAME, 0);
         // read 4 registers = 2 uint32 numbers
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type,
                 ModbusBindingProvider.VALUE_TYPE_INT32_SWAP, nonZeroOffset ? 1 : 0, 4));
-        configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -536,11 +526,10 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegister2Byte.newInstance(registerData[2], registerData[3]));
 
         binding = new ModbusBinding();
+        configureNumberItemBinding(2, SLAVE_NAME, 0);
         // read 4 registers = 2 uint32 numbers
         binding.updated(
                 addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, ModbusBindingProvider.VALUE_TYPE_FLOAT32, 0, 4));
-        configureNumberItemBinding(2, SLAVE_NAME, 0);
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         waitForConnectionsReceived(1);
@@ -569,18 +558,17 @@ public class ReadRegistersTestCase extends TestCaseSupport {
         addRegisterMethod.invoke(spi, constructRegisterInt.newInstance(99));
 
         binding = new ModbusBinding();
+
+        // Here we test only some of the read values (int16 read but not tested)
+        configureSwitchItemBinding(32, SLAVE_NAME + ModbusBindingProvider.VALUE_TYPE_BIT, 0, "B", null);
+        configureNumberItemBinding(4, SLAVE_NAME + ModbusBindingProvider.VALUE_TYPE_UINT8, 0, "UI8", null);
+
         Dictionary<String, Object> cfg = newLongPollBindingConfig();
         for (String valueType : new String[] { ModbusBindingProvider.VALUE_TYPE_BIT,
                 ModbusBindingProvider.VALUE_TYPE_UINT8, ModbusBindingProvider.VALUE_TYPE_INT16 }) {
             addSlave(cfg, SLAVE_NAME + valueType, type, valueType, nonZeroOffset ? 1 : 0, 2);
         }
         binding.updated(cfg);
-
-        // Here we test only some of the read values (int16 read but not tested)
-        configureSwitchItemBinding(32, SLAVE_NAME + ModbusBindingProvider.VALUE_TYPE_BIT, 0, "B", null);
-        configureNumberItemBinding(4, SLAVE_NAME + ModbusBindingProvider.VALUE_TYPE_UINT8, 0, "UI8", null);
-
-        binding.execute();
 
         // Give the system some time to make the expected connections & requests
         // We expect as many requests and connections as there are slaves conifigured for the binding.
