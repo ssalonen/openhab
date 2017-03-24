@@ -223,10 +223,10 @@ public class Transformation {
      * @return Transformed command, or null if no transformation was possible
      */
     public State transformState(List<Class<? extends State>> types, State state) {
-        if (isIdentityTransform()) {
-            // optimization, do not convert state->string->state if the transformation is identity transform
-            return state;
-        }
+        // if (isIdentityTransform()) {
+        // // optimization, do not convert state->string->state if the transformation is identity transform
+        // return state;
+        // }
         final String stateAsString = state.toString();
         final String transformed = transform(stateAsString);
         State transformedState = TypeParser.parseState(types, transformed);

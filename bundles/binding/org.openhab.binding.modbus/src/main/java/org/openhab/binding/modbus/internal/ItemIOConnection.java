@@ -316,11 +316,19 @@ public class ItemIOConnection {
         }
     }
 
+    // XXX: ugly
     public boolean supportBooleanLikeState() {
         return getAcceptedDataTypes().stream().anyMatch(clz -> {
             return clz.equals(OnOffType.class) || clz.equals(OpenClosedType.class);
         });
     }
+
+    // // XXX: ugly
+    // public boolean supportNumericState() {
+    // return getAcceptedDataTypes().stream().anyMatch(clz -> {
+    // return clz.equals(DecimalType.class) || clz.equals(PercentType.class);
+    // });
+    // }
 
     /**
      * For backwards compatibility with 1.x binding

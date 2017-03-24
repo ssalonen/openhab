@@ -242,7 +242,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.STOP);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         // Stop was not processed
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
@@ -257,7 +257,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", OnOffType.OFF);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(3);
         // two registers were changed at the same time
         assertThat(spi.getRegister(0).getValue(), is(equalTo(1)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(0)));
@@ -399,7 +399,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("foob"));
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(3);
         // two registers were changed at the same time
         assertThat(spi.getRegister(0).getValue(), is(equalTo(102))); // 102 = f
         assertThat(spi.getRegister(1).getValue(), is(equalTo(111))); // 111 = o
