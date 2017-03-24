@@ -152,7 +152,7 @@ public class WriteCoilsAndDiscreteTestCase extends TestCaseSupport {
         binding = new ModbusBinding();
         int offset = (nonZeroOffset ? 1 : 0);
         configureSwitchItemBinding(2, SLAVE_NAME, 0);
-        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, offset, 2));
+        binding.updated(addSlave(newNoPollBindingConfig(), SLAVE_NAME, type, null, offset, 2));
 
         try {
             binding.receiveCommand(String.format("Item%s", itemIndex + 1), command);
@@ -175,8 +175,7 @@ public class WriteCoilsAndDiscreteTestCase extends TestCaseSupport {
         int offset = (nonZeroOffset ? 1 : 0);
         configureSwitchItemBinding(2, SLAVE_NAME, 0);
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, offset, BIT_READ_COUNT));
-
-        // READ -- initializes register
+        waitForConnectionsReceived(1); // wait for read
         binding.receiveCommand(String.format("Item%s", itemIndex + 1), command);
         verifyRequests(true);
     }

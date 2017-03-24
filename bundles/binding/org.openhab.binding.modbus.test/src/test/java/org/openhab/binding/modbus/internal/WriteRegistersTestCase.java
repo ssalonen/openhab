@@ -131,7 +131,7 @@ public class WriteRegistersTestCase extends TestCaseSupport {
         binding = new ModbusBinding();
         int offset = (nonZeroOffset ? 1 : 0);
         configureItems();
-        binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, offset, 2));
+        binding.updated(addSlave(newNoPollBindingConfig(), SLAVE_NAME, type, null, offset, 2));
 
         binding.receiveCommand(String.format("Item%s", itemIndex + 1), command);
         errPrint("verifying: testRegistersNoReads");
@@ -154,7 +154,7 @@ public class WriteRegistersTestCase extends TestCaseSupport {
         configureItems();
         // READ -- initializes register
         binding.updated(addSlave(newLongPollBindingConfig(), SLAVE_NAME, type, null, offset, READ_COUNT));
-
+        waitForConnectionsReceived(1); // wait for read
         binding.receiveCommand(String.format("Item%s", itemIndex + 1), command);
         errPrint("verifying: testWriteDigitalsAfterRead");
         verifyRequests(true);

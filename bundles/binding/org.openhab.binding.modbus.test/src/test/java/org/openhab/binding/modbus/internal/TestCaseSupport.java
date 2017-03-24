@@ -107,8 +107,9 @@ public class TestCaseSupport {
      * This makes the tests as strict as possible -- connection must be closed.
      */
     private static final int SERVER_THREADS = 1;
-    // "infinity", we execute manually manually
-    protected static long REFRESH_INTERVAL = 1000000L;
+    // automatic polling disabled
+    protected static long REFRESH_INTERVAL_NO_POLL = -1L;
+    protected static long REFRESH_INTERVAL_LONG_POLL = Long.MAX_VALUE;
     protected static String SLAVE_NAME = "slave1";
     protected static String SLAVE2_NAME = "slave2";
     protected static int SLAVE_UNIT_ID = 1;
@@ -206,7 +207,13 @@ public class TestCaseSupport {
 
     protected static Dictionary<String, Object> newLongPollBindingConfig() {
         Dictionary<String, Object> config = new Hashtable<>();
-        config.put("poll", String.valueOf(REFRESH_INTERVAL));
+        config.put("poll", String.valueOf(REFRESH_INTERVAL_LONG_POLL));
+        return config;
+    }
+
+    protected static Dictionary<String, Object> newNoPollBindingConfig() {
+        Dictionary<String, Object> config = new Hashtable<String, Object>();
+        config.put("poll", String.valueOf(REFRESH_INTERVAL_NO_POLL));
         return config;
     }
 

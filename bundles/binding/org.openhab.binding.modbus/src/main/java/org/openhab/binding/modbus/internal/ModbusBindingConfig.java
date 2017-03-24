@@ -10,8 +10,10 @@ package org.openhab.binding.modbus.internal;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
@@ -21,8 +23,10 @@ import org.openhab.core.binding.BindingConfig;
 import org.openhab.core.items.Item;
 import org.openhab.core.library.items.ContactItem;
 import org.openhab.core.library.items.SwitchItem;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
+import org.openhab.core.library.types.PercentType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
@@ -109,6 +113,33 @@ public class ModbusBindingConfig implements BindingConfig {
         }
     }
 
+    private static List<Class<? extends State>> reorderAcceptedDataTypes(List<Class<? extends State>> types) {
+        // openhab2 and openhab 1.x compat have different ordering of datatypes, e.g. with dimmeritem
+        // https://github.com/eclipse/smarthome/blob/master/bundles/core/org.eclipse.smarthome.core/src/main/java/org/eclipse/smarthome/core/library/items/DimmerItem.java
+        // https://github.com/openhab/openhab-core/blob/master/bundles/org.openhab.core.compat1x/src/main/java/org/openhab/core/library/items/DimmerItem.java
+
+        return types.stream().sorted(new Comparator<Class<? extends State>>() {
+
+            private boolean isNumeric(Class<? extends State> o1) {
+                return o1.equals(DecimalType.class) || o1.equals(PercentType.class);
+            }
+
+            @Override
+            public int compare(Class<? extends State> o1, Class<? extends State> o2) {
+                int o1Order = 0;
+                int o2Order = 0;
+                if (isNumeric(o1)) {
+                    o1Order = -1;
+                }
+                if (isNumeric(o2)) {
+                    o2Order = -1;
+                }
+                return o1Order - o2Order;
+            }
+        }).collect(Collectors.toList());
+
+    }
+
     /**
      * Constructor for config string
      *
@@ -147,7 +178,7 @@ public class ModbusBindingConfig implements BindingConfig {
         itemClass = item.getClass();
         itemName = item.getName();
         itemAcceptedCommandTypes = item.getAcceptedCommandTypes();
-        itemAcceptedDataTypes = item.getAcceptedDataTypes();
+        itemAcceptedDataTypes = reorderAcceptedDataTypes(item.getAcceptedDataTypes());
 
         if (config.contains("[")) {
             logger.debug("Since '[' in item '{}' config string '{}', trying to parse it using extended parser",

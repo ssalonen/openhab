@@ -3,6 +3,7 @@ package org.openhab.binding.modbus.internal;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -293,12 +295,13 @@ public class ModbusManagerImpl implements ModbusManager {
                     State numericState = ModbusManagerImpl.extractStateFromRegisters(registers, connection.getIndex(),
                             valueType);
 
-                    State[] stateCandidatesForTransformation;
+                    List<State> stateCandidatesForTransformation = new LinkedList<>();
+                    stateCandidatesForTransformation.add(numericState);
                     if (connection.supportBooleanLikeState()) {
                         boolean boolValue = !numericState.equals(DecimalType.ZERO);
-                        stateCandidatesForTransformation = booleanToBooleanLikeStateCandidates(boolValue);
-                    } else {
-                        stateCandidatesForTransformation = new State[] { numericState };
+                        Stream.of(booleanToBooleanLikeStateCandidates(boolValue))
+                                .forEach(s -> stateCandidatesForTransformation.add(s));
+
                     }
                     for (State newState : stateCandidatesForTransformation) {
                         boolean stateChanged = !newState.equals(connection.getPreviouslyPolledState());
@@ -455,7 +458,8 @@ public class ModbusManagerImpl implements ModbusManager {
         return request[0];
     }
 
-    private ModbusTransaction createTransactionForEndpoint(ModbusSlaveEndpoint endpoint) {
+    private ModbusTransaction createTransactionForEndpoint(ModbusSlaveEndpoint endpoint,
+            Optional<ModbusSlaveConnection> connection) {
         ModbusTransaction transaction = endpoint.accept(new ModbusSlaveEndpointVisitor<ModbusTransaction>() {
 
             @Override
@@ -477,6 +481,15 @@ public class ModbusManagerImpl implements ModbusManager {
         });
         transaction.setRetryDelayMillis(
                 connectionFactory.getEndpointPoolConfiguration(endpoint).getPassivateBorrowMinMillis());
+        if (transaction instanceof ModbusSerialTransaction) {
+            ((ModbusSerialTransaction) transaction).setSerialConnection((SerialConnection) connection.get());
+        } else if (transaction instanceof ModbusUDPTransaction) {
+            ((ModbusUDPTransaction) transaction).setTerminal(((UDPMasterConnection) connection.get()).getTerminal());
+        } else if (transaction instanceof ModbusTCPTransaction) {
+            ((ModbusTCPTransaction) transaction).setConnection((TCPMasterConnection) connection.get());
+        } else {
+            throw new IllegalStateException();
+        }
         return transaction;
     }
 
@@ -538,19 +551,10 @@ public class ModbusManagerImpl implements ModbusManager {
                 logger.warn("Not connected to endpoint {} -- aborting request {}", endpoint, message);
                 callback.internalUpdateReadErrorItem(message, new ModbusConnectionException(endpoint));
             }
-            ModbusTransaction transaction = createTransactionForEndpoint(endpoint);
+            ModbusTransaction transaction = createTransactionForEndpoint(endpoint, connection);
             ModbusRequest request = createRequest(message);
             transaction.setRequest(request);
-            if (transaction instanceof ModbusSerialTransaction) {
-                ((ModbusSerialTransaction) transaction).setSerialConnection((SerialConnection) connection.get());
-            } else if (transaction instanceof ModbusUDPTransaction) {
-                ((ModbusUDPTransaction) transaction)
-                        .setTerminal(((UDPMasterConnection) connection.get()).getTerminal());
-            } else if (transaction instanceof ModbusTCPTransaction) {
-                ((ModbusTCPTransaction) transaction).setConnection((TCPMasterConnection) connection.get());
-            } else {
-                throw new IllegalStateException();
-            }
+
             try {
                 transaction.execute();
             } catch (ModbusException e) {
@@ -560,7 +564,7 @@ public class ModbusManagerImpl implements ModbusManager {
                         e.getMessage());
                 invalidate(endpoint, connection);
                 // set connection to null such that it is not returned to pool
-                connection = null;
+                connection = Optional.empty();
                 callback.internalUpdateReadErrorItem(message, e);
             }
             ModbusResponse response = transaction.getResponse();
@@ -626,7 +630,7 @@ public class ModbusManagerImpl implements ModbusManager {
         Optional<ModbusSlaveConnection> connection = borrowConnection(endpoint);
 
         try {
-            ModbusTransaction transaction = createTransactionForEndpoint(endpoint);
+            ModbusTransaction transaction = createTransactionForEndpoint(endpoint, connection);
             ModbusRequest request = createRequest(message);
             transaction.setRequest(request);
             try {
@@ -638,7 +642,7 @@ public class ModbusManagerImpl implements ModbusManager {
                         e.getMessage());
                 invalidate(endpoint, connection);
                 // set connection to null such that it is not returned to pool
-                connection = null;
+                connection = Optional.empty();
                 callback.internalUpdateWriteError(message, e);
             }
             ModbusResponse response = transaction.getResponse();
@@ -772,20 +776,20 @@ public class ModbusManagerImpl implements ModbusManager {
      * @param command OpenHAB command received by the item
      * @return new boolean value to be written to the device
      */
-    public static boolean translateCommand2Boolean(Command command) {
+    public static Optional<Boolean> translateCommand2Boolean(Command command) {
         if (command.equals(OnOffType.ON)) {
-            return true;
+            return Optional.of(Boolean.TRUE);
         }
         if (command.equals(OnOffType.OFF)) {
-            return false;
+            return Optional.of(Boolean.FALSE);
         }
         if (command.equals(OpenClosedType.OPEN)) {
-            return true;
+            return Optional.of(Boolean.TRUE);
         }
         if (command.equals(OpenClosedType.CLOSED)) {
-            return false;
+            return Optional.of(Boolean.FALSE);
         }
-        throw new IllegalArgumentException("command not supported");
+        return Optional.empty();
     }
 
 }

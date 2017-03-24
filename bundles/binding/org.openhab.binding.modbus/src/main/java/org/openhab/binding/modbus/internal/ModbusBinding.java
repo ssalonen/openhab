@@ -16,7 +16,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,10 +28,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.lang.StringUtils;
 import org.openhab.binding.modbus.ModbusBindingProvider;
-import org.openhab.binding.modbus.internal.ModbusManager.PollTask;
 import org.openhab.binding.modbus.internal.ModbusManagerImpl.PollTaskImpl;
 import org.openhab.binding.modbus.internal.pooling.EndpointPoolConfiguration;
 import org.openhab.binding.modbus.internal.pooling.ModbusSerialSlaveEndpoint;
@@ -67,6 +64,112 @@ import net.wimpi.modbus.util.SerialParameters;
  * @since 1.1.0
  */
 public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implements ManagedService {
+
+    private abstract class AbstractModbusWriteRequestBlueprint implements ModbusWriteRequestBlueprint {
+
+        private int unitID;
+        private int ref;
+        private boolean writeCoil;
+        private ItemIOConnection writeConnection;
+
+        public AbstractModbusWriteRequestBlueprint(int unitID, int ref, boolean writeCoil,
+                ItemIOConnection writeConnection) {
+            this.unitID = unitID;
+            this.ref = ref;
+            this.writeCoil = writeCoil;
+            this.writeConnection = writeConnection;
+        }
+
+        @Override
+        public int getUnitID() {
+            return unitID;
+        }
+
+        @Override
+        public int getReference() {
+            return ref + writeConnection.getIndex();
+        }
+
+        @Override
+        public ModbusWriteFunctionCode getFunctionCode() {
+            if (writeCoil) {
+                return ModbusWriteFunctionCode.WRITE_COIL;
+            } else {
+                return ModbusBinding.writeMultipleRegisters ? ModbusWriteFunctionCode.WRITE_MULTIPLE_REGISTERS
+                        : ModbusWriteFunctionCode.WRITE_SINGLE_REGISTER;
+            }
+        }
+
+    }
+
+    private class ModbusCoilWriteRequestBlueprint extends AbstractModbusWriteRequestBlueprint
+            implements ModbusWriteCoilRequestBlueprint {
+
+        private boolean coilValue;
+
+        public ModbusCoilWriteRequestBlueprint(int unitID, int ref, ItemIOConnection writeConnection,
+                boolean coilValue) {
+            super(unitID, ref, true, writeConnection);
+            this.coilValue = coilValue;
+
+        }
+
+        @Override
+        public void accept(ModbusWriteRequestBlueprintVisitor visitor) {
+            visitor.visit(this);
+        }
+
+        @Override
+        public boolean getCoil() {
+            return coilValue;
+        }
+
+    }
+
+    private class ModbusRegisterWriteRequestBlueprint extends AbstractModbusWriteRequestBlueprint
+            implements ModbusWriteRegisterRequestBlueprint {
+
+        private Register[] registers;
+
+        public ModbusRegisterWriteRequestBlueprint(int unitID, int ref, ItemIOConnection writeConnection,
+                Register[] registers) {
+            super(unitID, ref, false, writeConnection);
+            this.registers = registers;
+
+        }
+
+        @Override
+        public void accept(ModbusWriteRequestBlueprintVisitor visitor) {
+            visitor.visit(this);
+        }
+
+        @Override
+        public Register[] getRegisters() {
+            return registers;
+        }
+
+    }
+
+    private static class PollTaskWithExtra extends PollTaskImpl {
+
+        private String slaveType;
+        private Map<String, List<ItemIOConnection>> connectionsByItem;
+
+        public PollTaskWithExtra(ModbusSlaveEndpoint endpoint, ModbusReadRequestBlueprint message,
+                ReadCallback callback, String slaveType, Map<String, List<ItemIOConnection>> connectionsByItem) {
+            super(endpoint, message, callback);
+            this.slaveType = slaveType;
+            this.connectionsByItem = connectionsByItem;
+        }
+
+        public String getSlaveType() {
+            return slaveType;
+        }
+
+        public Map<String, List<ItemIOConnection>> getConnectionsByItem() {
+            return connectionsByItem;
+        }
+    }
 
     private static final long DEFAULT_POLL_INTERVAL = 200;
 
@@ -104,11 +207,12 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
     // TODO: fill in as service
     private ModbusManager manager = new ModbusManagerImpl();
 
-    private List<PollTask> pollTasks = new LinkedList<PollTask>();
-    private Map<String, PollTask> slaveNameToPollTask = new HashMap<>();
+    // FIXME: concurrent access
+    private Map<String, PollTaskWithExtra> slaveNameToPollTask = new HashMap<>();
 
     private AtomicBoolean pollStarted = new AtomicBoolean();
 
+    // FIXME: concurrent access
     private boolean properlyConfigured;
 
     @Override
@@ -137,7 +241,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
         Register newValue;
         if (command instanceof IncreaseDecreaseType || command instanceof UpDownType) {
             if (!previouslyPolledState.isPresent()) {
-                logger.warn("Not polled value for item {}. Cannot process command {}", itemName, command);
+                logger.warn("No polled value for item {}. Cannot process command {}", itemName, command);
                 return Optional.empty();
             }
             State prevState = previouslyPolledState.get();
@@ -179,17 +283,21 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
      */
     @Override
     protected void internalReceiveCommand(String itemName, Command command) {
+        Comparator<ItemIOConnection> byLastPolledTime = (ItemIOConnection a, ItemIOConnection b) -> Long
+                .compareUnsigned(a.getPollNumber(), b.getPollNumber());
         providers.stream().filter(provider -> provider.providesBindingFor(itemName))
                 .map(provider -> provider.getConfig(itemName))
                 .collect(Collectors.toMap(Function.identity(), cfg -> cfg.getWriteConnectionsByCommand(command)))
                 .entrySet().stream().forEach(entry -> {
                     ModbusBindingConfig config = entry.getKey();
-                    Comparator<ItemIOConnection> byLastPolledTime = (ItemIOConnection a, ItemIOConnection b) -> Long
-                            .compareUnsigned(a.getPollNumber(), b.getPollNumber());
-                    Optional<State> previouslyPolledState = config.getReadConnections().stream().max(byLastPolledTime)
-                            .map(connection -> connection.getPreviouslyPolledState());
 
                     for (ItemIOConnection writeConnection : entry.getValue()) {
+                        // XXX: this is unnecessary to do in a for loop...we just want to have same instance of
+                        // IOConnection to get the state
+                        List<ItemIOConnection> readConnections = slaveNameToPollTask.get(writeConnection.getSlaveName())
+                                .getConnectionsByItem().get(itemName);
+                        Optional<State> previouslyPolledState = readConnections.stream().max(byLastPolledTime)
+                                .map(connection -> connection.getPreviouslyPolledState());
 
                         // ModbusSlave slave = modbusSlaves.get(writeConnection.getSlaveName());
                         if (writeConnection.supportsCommand(command)) {
@@ -203,61 +311,52 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                             // slave.executeCommand(itemName, transformedCommand, writeConnection.getIndex(),
                             // previouslyPolledState);
                             // manager.writeCommand(writeConnection.get, message, callback);
-                            boolean coil = ModbusManagerImpl.translateCommand2Boolean(command);
-                            getRegistersForWriteCommand(command, previouslyPolledState, itemName);
-                            PollTask pollTask = slaveNameToPollTask.get(writeConnection.getSlaveName());
+                            Optional<Boolean> coil = ModbusManagerImpl.translateCommand2Boolean(transformedCommand);
+                            Optional<Register[]> registersForWriteCommand = getRegistersForWriteCommand(
+                                    transformedCommand, previouslyPolledState, itemName);
+                            String slaveName = writeConnection.getSlaveName();
+                            final PollTaskWithExtra pollTask = slaveNameToPollTask.get(slaveName);
+                            String slaveType = pollTask.getSlaveType();
                             ModbusSlaveEndpoint endpoint = pollTask.getEndpoint();
-                            manager.writeCommand(endpoint, new ModbusWriteRequestBlueprint() {
-
-                                @Override
-                                public int getUnitID() {
-                                    return pollTask.getMessage().getUnitID();
-                                }
-
-                                @Override
-                                public int getReference() {
-                                    return pollTask.getMessage().getReference() + writeConnection.getIndex();
-                                }
-
-                                public boolean writingCoil(){
-                                    return pollTask.getMessage().getFunctionCode().equals(ModbusReadFunctionCode.READ_COILS)
-                                }
-
-                                @Override
-                                public ModbusWriteFunctionCode getFunctionCode() {
-                                    if (writingCoil()) {
-                                        return ModbusWriteFunctionCode.WRITE_COIL;
-                                    } else {
-                                        return writeMultipleRegisters ? ModbusWriteFunctionCode.WRITE_MULTIPLE_REGISTERS
-                                                : ModbusWriteFunctionCode.WRITE_SINGLE_REGISTER;
-                                    }
-                                }
-
-                                @Override
-                                public void accept(ModbusWriteRequestBlueprintVisitor visitor) {
-                                    if(writingCoil){
-                                        visitor.visit((ModbusWriteCoilRequestBlueprint) this);
-                                    }else{
-                                        .getClass()..
-                                    }
-                                }
-                            }, new WriteCallback() {
+                            if (!slaveType.equals(ModbusBindingProvider.TYPE_COIL)
+                                    && !slaveType.equals(ModbusBindingProvider.TYPE_HOLDING)) {
+                                logger.debug(
+                                        "Received command to slave '{}' which of type '{}'. Since not {} nor {}, ignoring the command",
+                                        slaveName, slaveType, ModbusBindingProvider.TYPE_COIL,
+                                        ModbusBindingProvider.TYPE_HOLDING);
+                                continue;
+                            }
+                            ModbusWriteRequestBlueprint message;
+                            try {
+                                message = pollTask.getSlaveType().equals(ModbusBindingProvider.TYPE_COIL)
+                                        ? new ModbusCoilWriteRequestBlueprint(pollTask.getMessage().getUnitID(),
+                                                pollTask.getMessage().getReference(), writeConnection, coil.get())
+                                        : new ModbusRegisterWriteRequestBlueprint(pollTask.getMessage().getUnitID(),
+                                                pollTask.getMessage().getReference(), writeConnection,
+                                                registersForWriteCommand.get());
+                            } catch (NoSuchElementException e) {
+                                logger.warn(
+                                        "Not executing command '{}' (transformed from '{}' using transformation {}) "
+                                                + "using item '{}' IO connection {} (writeIndex={}, previouslyPolledState={}): "
+                                                + "either missing previous state or invalid command for this type of slave.",
+                                        transformedCommand, command, transformation, itemName, writeConnection,
+                                        previouslyPolledState);
+                                return;
+                            }
+                            manager.writeCommand(endpoint, message, new WriteCallback() {
 
                                 @Override
                                 public void internalUpdateWriteError(ModbusWriteRequestBlueprint request,
                                         Exception error) {
-
+                                    // NO OP
                                 }
 
                                 @Override
                                 public void internalUpdateResponse(ModbusWriteRequestBlueprint request,
                                         ModbusResponse response) {
-
+                                    // NO OP
                                 }
                             });
-                            // pollTaskToSlaveName.get(key)
-                            // FIXME: call API write
-                            throw new NotImplementedException();
                         } else {
                             logger.trace(
                                     "Command '{}' using item '{}' IO connection {} not triggered/supported by the IO connection",
@@ -510,8 +609,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
      * Clear all configuration and close all connections
      */
     private void clearAndClose() {
-        pollTasks.forEach(task -> manager.unregisterRegularPoll(task));
-        pollTasks.clear();
+        slaveNameToPollTask.values().stream().forEach(task -> manager.unregisterRegularPoll(task));
         slaveNameToPollTask.clear();
         pollStarted.compareAndSet(true, false);
     }
@@ -556,7 +654,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                     if (!matcher.matches()) {
                         if ("poll".equals(key)) {
                             if (StringUtils.isNotBlank((String) config.get(key))) {
-                                pollInterval = Integer.valueOf((String) config.get(key));
+                                pollInterval = Long.valueOf((String) config.get(key));
                             }
                         } else if ("writemultipleregisters".equals(key)) {
                             // XXX: ugly to touch base class but kept here for backwards compat
@@ -816,8 +914,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                             connectionsByItem.entrySet().stream().filter(
                                     entry -> containsIOConnectionReference(entry.getValue(), triggeredConnection))
                                     .forEach(entry -> {
-                                        logger.trace(
-                                                "Updating postUpdate({}, {}) based on request {} and connection {}",
+                                        logger.trace("postUpdate({}, {}) based on request {} and connection {}",
                                                 entry.getKey(), state, request, connection);
                                         eventPublisher.postUpdate(entry.getKey(), state);
                                     });
@@ -872,8 +969,8 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                                     getFunctionCode(), getReference(), getDataLength());
                         }
                     };
-                    PollTask task = new PollTaskImpl(endpoint, request, callback);
-                    pollTasks.add(task);
+                    PollTaskWithExtra task = new PollTaskWithExtra(endpoint, request, callback, type,
+                            connectionsByItem);
                     slaveNameToPollTask.put(slave, task);
                 } catch (Exception e) {
                     String errMsg = String.format("Exception when parsing configuration: %s %s", e.getClass().getName(),
@@ -906,8 +1003,13 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
             return;
         }
         if (pollStarted.compareAndSet(false, true)) {
-            logger.info("Starting polling with pollInterval={}ms", pollInterval);
-            pollTasks.forEach(task -> manager.registerRegularPoll(task, pollInterval, 0L));
+            if (pollInterval >= 0) {
+                logger.info("Starting polling with pollInterval={}ms", pollInterval);
+                slaveNameToPollTask.values().stream()
+                        .forEach(task -> manager.registerRegularPoll(task, pollInterval, 0L));
+            } else {
+                logger.info("Poll interval negative, not polling");
+            }
         }
     }
 
