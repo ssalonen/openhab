@@ -335,6 +335,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                                                 pollTask.getMessage().getReference(), writeConnection,
                                                 registersForWriteCommand.get());
                             } catch (NoSuchElementException e) {
+                                // coil or registersForWriteCommand Optional are empty
                                 logger.warn(
                                         "Not executing command '{}' (transformed from '{}' using transformation {}) "
                                                 + "using item '{}' IO connection {} (writeIndex={}, previouslyPolledState={}): "

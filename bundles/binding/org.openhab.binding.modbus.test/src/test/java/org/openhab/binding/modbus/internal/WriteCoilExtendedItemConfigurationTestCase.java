@@ -75,6 +75,7 @@ public class WriteCoilExtendedItemConfigurationTestCase extends TestCaseSupport 
 
         // send OFF to the item and ensure that coil is set as specified by the transformation
         binding.receiveCommand("Item1", OnOffType.OFF);
+        waitForConnectionsReceived(2);
         assertThat(spi.getDigitalOut(0).isSet(), is(equalTo(true)));
         assertThat(spi.getDigitalOut(1).isSet(), is(equalTo(true)));
         verifyNoMoreInteractions(eventPublisher);
