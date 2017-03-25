@@ -64,6 +64,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         binding.addBindingProvider(provider);
     }
 
+    /**
+     * Call to make the binding "long-polling", polling instantly on binding.updated() (given that config is valid)
+     */
     private void setLongPoll() {
         config.put("poll", String.valueOf(REFRESH_INTERVAL_LONG_POLL));
     }
@@ -88,7 +91,6 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     @Test
     public void testRegisterWriteIncreaseWithoutRead()
             throws BindingConfigParseException, ConfigurationException, InterruptedException {
-        // FIXME: should not long poll but nopoll isntead
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:0]", SLAVE_NAME));
