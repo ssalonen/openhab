@@ -53,7 +53,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         spi.addRegister(new SimpleRegister(10));
         //
         binding = new ModbusBinding();
-        config = newLongPollBindingConfig();
+        config = newNoPollBindingConfig();
         addSlave(config, SLAVE_NAME, ModbusBindingProvider.TYPE_HOLDING, ModbusBindingProvider.VALUE_TYPE_INT16, 0, 2);
 
         // Configure items
@@ -62,6 +62,10 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
 
         binding.setEventPublisher(eventPublisher);
         binding.addBindingProvider(provider);
+    }
+
+    private void setLongPoll() {
+        config.put("poll", String.valueOf(REFRESH_INTERVAL_LONG_POLL));
     }
 
     @Test
@@ -74,28 +78,27 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", UpDownType.UP);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(1)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
     }
 
     @Test
-    public void testRegisterWriteIncreaseWithoutRead() throws BindingConfigParseException, ConfigurationException {
+    public void testRegisterWriteIncreaseWithoutRead()
+            throws BindingConfigParseException, ConfigurationException, InterruptedException {
         // FIXME: should not long poll but nopoll isntead
         // Inspired by https://github.com/openhab/openhab/pull/4654
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:0]", SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
-        // binding.execute(); no read
         verifyNoMoreInteractions(eventPublisher);
         binding.receiveCommand("Item1", IncreaseDecreaseType.INCREASE);
-        waitForConnectionsReceived(2);
         // Binding cannot execute the command since there is no polled value
         // -> no change in registers
+        // Stop was not processed, even after some time
+        Thread.sleep(SLEEP_AFTER_REQUEST);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
     }
@@ -103,12 +106,12 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     @Test
     public void testRegisterWriteIncreaseWithRead()
             throws BindingConfigParseException, ConfigurationException, InterruptedException {
+        setLongPoll();
         // Read index 1 (value=10) and (INCREASE command) increments it by one -> 11. Written to index 0
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:1]", SLAVE_NAME));
         binding.updated(config);
         waitForConnectionsReceived(1);
-        Thread.sleep(100); // time for read
         verify(eventPublisher).postUpdate("Item1", new DecimalType(10));
         verifyNoMoreInteractions(eventPublisher);
 
@@ -121,6 +124,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     @Test
     public void testRegisterWriteIncreaseWithRead2()
             throws BindingConfigParseException, InterruptedException, ConfigurationException {
+        setLongPoll();
         // Read index 1 (value=10) and index 0 (value=9).
         // INCREASE command increments last read value (9) by one -> 10. Written to index 0
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
@@ -142,6 +146,7 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
     @Test
     public void testRegisterWriteIncreaseWithRead3()
             throws BindingConfigParseException, ConfigurationException, InterruptedException {
+        setLongPoll();
         // same as testRegisterWriteIncreaseWithRead2 but order of read connections is flipped
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0],<[%1$s:0],<[%1$s:1]", SLAVE_NAME));
@@ -165,11 +170,10 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         provider.processBindingConfiguration("test.items", new DimmerItem("Item1"),
                 String.format(">[%1$s:0:transformation=3],<[%1$s:0]", SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher);
 
         binding.receiveCommand("Item1", IncreaseDecreaseType.INCREASE);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         // Binding will be able to write the value even without previously polled value since the transformation
         // converts INCREASE to constant 3
         assertThat(spi.getRegister(0).getValue(), is(equalTo(3)));
@@ -186,10 +190,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", UpDownType.DOWN);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         // 65535 is same as -1, the SimpleRegister.getValue just returns the unsigned 16bit representation of the
         // register
         assertThat(spi.getRegister(0).getValue(), is(equalTo(65535)));
@@ -206,10 +209,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.MOVE);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(1)));
     }
@@ -224,10 +226,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
                                 + ",>[%1$s:1:trigger=MOVE,transformation=1],>[%1$s:1:trigger=STOP,transformation=0]",
                         SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", StopMoveType.STOP);
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(0)));
     }
@@ -239,11 +240,10 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
                 String.format(">[%1$s:0:trigger=UP,transformation=1],>[%1$s:0:trigger=DOWN,transformation=-1]"
                         + ",>[%1$s:1:trigger=MOVE,transformation=1]", SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
-        verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
+        verifyNoMoreInteractions(eventPublisher);
         binding.receiveCommand("Item1", StopMoveType.STOP);
-        waitForConnectionsReceived(1);
-        // Stop was not processed
+        // Stop was not processed, even after some time
+        Thread.sleep(SLEEP_AFTER_REQUEST);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(9)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
     }
@@ -254,10 +254,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         provider.processBindingConfiguration("test.items", new SwitchItem("Item1"), String.format(
                 ">[%1$s:0:trigger=OFF,transformation=ON],>[%1$s:1:trigger=OFF,transformation=OFF]", SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", OnOffType.OFF);
-        waitForConnectionsReceived(3);
+        waitForConnectionsReceived(2);
         // two registers were changed at the same time
         assertThat(spi.getRegister(0).getValue(), is(equalTo(1)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(0)));
@@ -269,10 +268,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         provider.processBindingConfiguration("test.items", new NumberItem("Item1"),
                 String.format(">[%1$s:0]", SLAVE_NAME));
         binding.updated(config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new PercentType("3.4"));
-        waitForConnectionsReceived(2);
+        waitForConnectionsReceived(1);
         // percent rounded down
         assertThat(spi.getRegister(0).getValue(), is(equalTo(3)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
@@ -311,11 +309,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         }
 
         binding.updated(this.config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new DecimalType("4"));
-        waitForConnectionsReceived(2);
-        // two registers were changed at the same time
+        waitForConnectionsReceived(1);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(12)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
     }
@@ -353,11 +349,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         }
 
         binding.updated(this.config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("foob"));
-        waitForConnectionsReceived(2);
-        // two registers were changed at the same time
+        waitForConnectionsReceived(1);
         assertThat(spi.getRegister(0).getValue(), is(equalTo(4)));
         assertThat(spi.getRegister(1).getValue(), is(equalTo(10)));
     }
@@ -396,10 +390,9 @@ public class WriteRegisterExtendedItemConfigurationTestCase extends TestCaseSupp
         }
 
         binding.updated(this.config);
-        waitForConnectionsReceived(1);
         verifyNoMoreInteractions(eventPublisher); // write-only item, no event sent
         binding.receiveCommand("Item1", new StringType("foob"));
-        waitForConnectionsReceived(3);
+        waitForConnectionsReceived(2);
         // two registers were changed at the same time
         assertThat(spi.getRegister(0).getValue(), is(equalTo(102))); // 102 = f
         assertThat(spi.getRegister(1).getValue(), is(equalTo(111))); // 111 = o

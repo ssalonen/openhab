@@ -60,7 +60,7 @@ import net.wimpi.modbus.util.SerialParameters;
 
 public class TestCaseSupport {
 
-    private static final long SLEEP_AFTER_REQUEST = 100;
+    protected static final long SLEEP_AFTER_REQUEST = 100;
 
     public enum ServerType {
         TCP,
