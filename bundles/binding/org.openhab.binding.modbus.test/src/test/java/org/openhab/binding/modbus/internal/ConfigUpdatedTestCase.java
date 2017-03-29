@@ -62,7 +62,7 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
 
     @Test
     public void testConfigUpdated() throws UnknownHostException, ConfigurationException, BindingConfigParseException,
-            org.osgi.service.cm.ConfigurationException {
+            org.osgi.service.cm.ConfigurationException, InterruptedException {
         // Modbus server ("modbus slave") has two digital inputs
         spi.addDigitalIn(new SimpleDigitalIn(true));
         spi.addDigitalIn(new SimpleDigitalIn(false));
@@ -131,14 +131,17 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         Dictionary<String, Object> cfg = addSlave(newLongPollBindingConfig(), serverType, connection, SLAVE_NAME,
                 ModbusBindingProvider.TYPE_DISCRETE, null, 1, 0, 2);
         putSlaveConfigParameter(cfg, serverType, SLAVE_NAME, "updateunchangeditems", "true");
-        binding.updated(cfg);
+        logger.info("First updated() started");
+        binding.updated(cfg); // first poll starts now
+        logger.info("First updated() finished");
+        Thread.sleep(500); // time for poll to start
 
         Thread executeOnBackground = new Thread(new Runnable() {
             @Override
             public void run() {
-                logger.info("First execution started");
+                logger.info("First (manual) execution started");
                 binding.pollAllScheduledNow();
-                logger.info("First execution finished");
+                logger.info("First (manual) execution finished");
             }
         });
 
@@ -148,21 +151,22 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         // But the first query is still on the way (since server is so slow)
 
         // Simulate config update
-        // any returned connections to the old connection pool will be closed immediately on return
+        // ongoing poll is interrupted
+        logger.info("Second updated() started, should cancel first manual execution before response is received");
         binding.updated(cfg);
+        Thread.sleep(500);
+        logger.info("Second updated() finished");
 
-        // Let the previous polling round end before entering the next round
-        // We are not really interested what would happen in the "transient period"
-        // where the old connections are ongoing at the same time as the new ones
         executeOnBackground.join();
 
-        // Polling should work after config update
+        // Polling should work after config update (server accepts only single connection so this verifies that
+        // connections were closed)
         logger.info("Second execution started");
         binding.pollAllScheduledNow();
         logger.info("Second execution finished");
 
-        // three requests, two of those due to execute() commands in this test,
-        // one due to initial automatic execute() (when updated the first time)
+        // three requests, two of those due to pollAllScheduledNow() commands in this test,
+        // one due to initial poll when updated() is called
         waitForRequests(3);
         // two connections, connection is closed on second updated(), and thus connection needs to re-initated
         waitForConnectionsReceived(2);
