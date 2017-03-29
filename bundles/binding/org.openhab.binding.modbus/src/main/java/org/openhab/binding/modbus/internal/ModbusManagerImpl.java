@@ -532,13 +532,6 @@ public class ModbusManagerImpl implements ModbusManager {
         logger.trace("returned connection for endpoint {}", endpoint);
     }
 
-    public void pollAllScheduledNow() {
-        scheduledPollTasks.keySet().stream().forEach(task -> {
-            logger.debug("By explicit request (pollAllScheduledNow), executing poll task {}", task);
-            this.executeOneTimePoll(task);
-        });
-    }
-
     @Override
     public void executeOneTimePoll(PollTask task) {
         ModbusSlaveEndpoint endpoint = task.getEndpoint();

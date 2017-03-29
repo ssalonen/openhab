@@ -1020,8 +1020,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
      */
     protected void pollAllScheduledNow() {
         logger.warn("Executing polled tasks manually! This should be only happen in tests");
-        ((ModbusManagerImpl) manager).pollAllScheduledNow();
-
+        slaveNameToPollTask.values().stream().forEach(task -> ((ModbusManagerImpl) manager).executeOneTimePoll(task));
     }
 
 }
