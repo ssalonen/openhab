@@ -602,10 +602,10 @@ public class ModbusManagerImpl implements ModbusManager {
         ScheduledFuture<?> future = scheduledPollTasks.remove(task);
         if (future == null) {
             // No such poll task
-            logger.warn("Caller tried to unregister nonexisting poll task %s", task);
+            logger.warn("Caller tried to unregister nonexisting poll task {}", task);
             return false;
         }
-        logger.info("Unregistering regular poll task %s (interrupting if necessary)", task);
+        logger.info("Unregistering regular poll task {} (interrupting if necessary)", task);
 
         // Make sure connections to this endpoint are closed when they are returned to pool (which
         // is usually pretty soon as transactions should be relatively short-lived)

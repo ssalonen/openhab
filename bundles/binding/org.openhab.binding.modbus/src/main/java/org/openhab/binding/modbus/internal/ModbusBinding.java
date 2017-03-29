@@ -848,7 +848,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
                             .orElse("false"));
 
                     // Deprecated
-                    if (config.get(String.format("%s.%s.%s", protocolPrefix, slave, "rawdatamultiplier")) == null) {
+                    if (config.get(String.format("%s.%s.%s", protocolPrefix, slave, "rawdatamultiplier")) != null) {
                         logger.warn("Slave {} has rawdatamultiplier set. This will be ignored.", slave);
                     }
 
