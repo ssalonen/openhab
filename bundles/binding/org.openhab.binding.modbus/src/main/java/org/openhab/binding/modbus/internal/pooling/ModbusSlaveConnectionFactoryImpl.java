@@ -171,7 +171,7 @@ public class ModbusSlaveConnectionFactoryImpl
         long connectionAgeMillis = System.currentTimeMillis() - ((PooledConnection) obj).getLastConnected();
         long disconnectBeforeConnectedMillis = disconnectIfConnectedBefore.getOrDefault(endpoint, Long.MAX_VALUE);
         if (reconnectAfterMillis == 0 || (reconnectAfterMillis > 0 && connectionAgeMillis > reconnectAfterMillis)
-                || connected < disconnectBeforeConnectedMillis) {
+                || connected <= disconnectBeforeConnectedMillis) {
             logger.trace(
                     "(passivate) Connection {} (endpoint {}) age {}ms is over the reconnectAfterMillis={}ms limit or has been connection time ({}) is after the \"disconnectBeforeConnectedMillis\" -> disconnecting.",
                     connection, endpoint, connectionAgeMillis, reconnectAfterMillis, connected,
