@@ -789,11 +789,8 @@ public class ModbusManagerImpl implements ModbusManager {
         if (command.equals(OpenClosedType.CLOSED)) {
             return Optional.of(Boolean.FALSE);
         }
-        if (command.equals(new DecimalType(BigDecimal.ONE))) {
-            return Optional.of(Boolean.TRUE);
-        }
-        if (command.equals(DecimalType.ZERO)) {
-            return Optional.of(Boolean.FALSE);
+        if (command instanceof DecimalType) {
+            return Optional.of(!command.equals(DecimalType.ZERO));
         }
         return Optional.empty();
     }
