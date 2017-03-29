@@ -71,17 +71,20 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         configureSwitchItemBinding(2, SLAVE_NAME, 0);
 
         // simulate configuration changes
+        // each updated() will interrupt and close connections. We sleep after updated() to give it time to actually
+        // make the poll
         for (int i = 0; i < 2; i++) {
+            if (i > 0) {
+                Thread.sleep(300);
+            }
             binding.updated(
                     addSlave(newLongPollBindingConfig(), SLAVE_NAME, ModbusBindingProvider.TYPE_DISCRETE, null, 0, 2));
         }
 
-        binding.pollAllScheduledNow();
-
         // Give the system some time to make the expected connections & requests
-        waitForRequests(1);
+        waitForRequests(2);
         if (!serverType.equals(ServerType.UDP)) {
-            waitForConnectionsReceived(1);
+            waitForConnectionsReceived(2);
         }
 
         verifyEvents();
