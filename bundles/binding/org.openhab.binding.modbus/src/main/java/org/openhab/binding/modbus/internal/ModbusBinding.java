@@ -207,8 +207,7 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
     // TODO: fill in as service
     private ModbusManager manager = new ModbusManagerImpl();
 
-    // FIXME: concurrent access
-    private Map<String, PollTaskWithExtra> slaveNameToPollTask = new HashMap<>();
+    private Map<String, PollTaskWithExtra> slaveNameToPollTask = new ConcurrentHashMap<>();
 
     private AtomicBoolean pollStarted = new AtomicBoolean();
 
