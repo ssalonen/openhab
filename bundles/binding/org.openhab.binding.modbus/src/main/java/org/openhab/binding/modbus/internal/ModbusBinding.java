@@ -609,8 +609,10 @@ public class ModbusBinding extends AbstractBinding<ModbusBindingProvider> implem
      * Clear all configuration and close all connections
      */
     private void clearAndClose() {
-        slaveNameToPollTask.values().stream().forEach(task -> manager.unregisterRegularPoll(task));
-        slaveNameToPollTask.clear();
+        if (pollInterval >= 0) {
+            slaveNameToPollTask.values().stream().forEach(task -> manager.unregisterRegularPoll(task));
+            slaveNameToPollTask.clear();
+        }
         pollStarted.compareAndSet(true, false);
     }
 
