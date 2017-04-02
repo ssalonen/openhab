@@ -63,6 +63,8 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
     @Test
     public void testConfigUpdated() throws UnknownHostException, ConfigurationException, BindingConfigParseException,
             org.osgi.service.cm.ConfigurationException, InterruptedException {
+        MAX_WAIT_REQUESTS_MILLIS = 10000;
+
         // Modbus server ("modbus slave") has two digital inputs
         spi.addDigitalIn(new SimpleDigitalIn(true));
         spi.addDigitalIn(new SimpleDigitalIn(false));
@@ -83,6 +85,8 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
 
         // Give the system some time to make the expected connections & requests
         waitForRequests(2);
+        // Give some time due to "slow server"
+        Thread.sleep(artificialServerWait * 2);
         if (!serverType.equals(ServerType.UDP)) {
             waitForConnectionsReceived(2);
         }
@@ -132,9 +136,11 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
                 ModbusBindingProvider.TYPE_DISCRETE, null, 1, 0, 2);
         putSlaveConfigParameter(cfg, serverType, SLAVE_NAME, "updateunchangeditems", "true");
         logger.info("First updated() started");
-        binding.updated(cfg); // first poll starts now
-        logger.info("First updated() finished");
+        // 1st poll
+        binding.updated(cfg);
+        logger.info("First updated() sleep");
         Thread.sleep(500); // time for poll to start
+        logger.info("First updated() finished");
 
         Thread executeOnBackground = new Thread(new Runnable() {
             @Override
@@ -145,6 +151,7 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
             }
         });
 
+        // 2nd poll. In practice queues for connection since first connection is still open
         executeOnBackground.start();
         Thread.sleep(100);
         // Connection should be now open (since ~100ms passed since connection)
@@ -152,8 +159,10 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
 
         // Simulate config update
         // ongoing poll is interrupted
-        logger.info("Second updated() started, should cancel first manual execution before response is received");
+        logger.info("Second updated() started, should cancel first poll triggered by updated");
+        // 3rd poll, cancels 1st poll
         binding.updated(cfg);
+        logger.info("Second updated() sleep");
         Thread.sleep(500);
         logger.info("Second updated() finished");
 
@@ -162,12 +171,11 @@ public class ConfigUpdatedTestCase extends TestCaseSupport {
         // Polling should work after config update (server accepts only single connection so this verifies that
         // connections were closed)
         logger.info("Second execution started");
+        // 4th poll
         binding.pollAllScheduledNow();
         logger.info("Second execution finished");
 
-        // three requests, two of those due to pollAllScheduledNow() commands in this test,
-        // one due to initial poll when updated() is called
-        waitForRequests(3);
+        // three requests: polls 2, 3, 4
         // two connections, connection is closed on second updated(), and thus connection needs to re-initated
         waitForConnectionsReceived(2);
         verify(eventPublisher, times(3)).postUpdate("Item1", OnOffType.ON);

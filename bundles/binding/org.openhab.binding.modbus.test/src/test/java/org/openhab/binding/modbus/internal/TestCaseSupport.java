@@ -298,6 +298,9 @@ public class TestCaseSupport {
             try {
                 assertThat(modbustRequestCaptor.getAllReturnValues().size(), is(equalTo(expectedRequestCount)));
             } catch (AssertionError e) {
+                if (modbustRequestCaptor.getAllReturnValues().size() > expectedRequestCount) {
+                    throw e;
+                }
                 lastError = e;
                 try {
                     Thread.sleep(sleepMillis);

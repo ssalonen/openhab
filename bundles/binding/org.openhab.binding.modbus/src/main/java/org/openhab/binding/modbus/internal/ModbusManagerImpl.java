@@ -130,6 +130,15 @@ public class ModbusManagerImpl implements ModbusManager {
         }
     }
 
+    private static class PollTaskUnregistered extends Exception {
+        public PollTaskUnregistered(String msg) {
+            super(msg);
+        }
+
+        private static final long serialVersionUID = 6939730579178506885L;
+
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(ModbusManagerImpl.class);
     private static GenericKeyedObjectPoolConfig generalPoolConfig = new GenericKeyedObjectPoolConfig();
 
@@ -449,7 +458,9 @@ public class ModbusManagerImpl implements ModbusManager {
                     throw new IllegalStateException();
                 }
             });
-        } else {
+        } else
+
+        {
             throw new IllegalArgumentException(String.format("Unexpected function code %s", message.getFunctionCode()));
         }
         request[0].setUnitID(message.getUnitID());
@@ -532,21 +543,41 @@ public class ModbusManagerImpl implements ModbusManager {
         logger.trace("returned connection for endpoint {}", endpoint);
     }
 
+    private void verifyTaskIsRegistered(PollTask task) throws PollTaskUnregistered {
+        if (!this.scheduledPollTasks.containsKey(task)) {
+            String msg = String.format("Poll task %s is unregistered", task);
+            logger.warn(msg);
+            throw new PollTaskUnregistered(msg);
+        }
+    }
+
     @Override
     public void executeOneTimePoll(PollTask task) {
+        executeOneTimePoll(task, true);
+    }
+
+    public void executeOneTimePoll(PollTask task, boolean manual) {
         ModbusSlaveEndpoint endpoint = task.getEndpoint();
         ModbusReadRequestBlueprint message = task.getMessage();
         ReadCallback callback = task.getCallback();
-        Optional<ModbusSlaveConnection> connection = borrowConnection(endpoint);
+
+        Optional<ModbusSlaveConnection> connection = borrowConnection(endpoint); // might take a while
 
         try {
             if (!connection.isPresent()) {
                 logger.warn("Not connected to endpoint {} -- aborting request {}", endpoint, message);
+                if (!manual) {
+                    verifyTaskIsRegistered(task);
+                }
                 callback.internalUpdateReadErrorItem(message, new ModbusConnectionException(endpoint));
             }
+
             ModbusTransaction transaction = createTransactionForEndpoint(endpoint, connection);
             ModbusRequest request = createRequest(message);
             transaction.setRequest(request);
+            if (!manual) {
+                verifyTaskIsRegistered(task);
+            }
 
             try {
                 transaction.execute();
@@ -558,18 +589,29 @@ public class ModbusManagerImpl implements ModbusManager {
                 invalidate(endpoint, connection);
                 // set connection to null such that it is not returned to pool
                 connection = Optional.empty();
+                if (!manual) {
+                    verifyTaskIsRegistered(task);
+                }
                 callback.internalUpdateReadErrorItem(message, e);
             }
             ModbusResponse response = transaction.getResponse();
-            logger.trace("Response for read (FC={}) {}", response.getFunctionCode(), response.getHexMessage());
+            logger.trace("Response for read (FC={}, transaction ID={}) {}", response.getFunctionCode(),
+                    response.getTransactionID(), response.getHexMessage());
+
+            if (!manual) {
+                verifyTaskIsRegistered(task);
+            }
+
             if ((response.getTransactionID() != transaction.getTransactionID()) && !response.isHeadless()) {
                 logger.warn(
                         "Transaction id of the response does not match request {}.  Endpoint {}. Connection: {}. Ignoring response.",
                         request, endpoint, connection);
                 callback.internalUpdateReadErrorItem(message, new ModbusUnexpectedTransactionIdException());
+            } else {
+                invokeCallbackWithResponse(message, callback, response);
             }
-
-            invokeCallbackWithResponse(message, callback, response);
+        } catch (PollTaskUnregistered e) {
+            logger.warn("Poll task was unregistered -- not executing/proceeding with the poll", e);
         } finally {
             returnConnection(endpoint, connection);
         }
@@ -579,7 +621,7 @@ public class ModbusManagerImpl implements ModbusManager {
     public void registerRegularPoll(PollTask task, long pollPeriodMillis, long initialDelayMillis) {
         ScheduledFuture<?> future = scheduledThreadPoolExecutor.scheduleAtFixedRate(() -> {
             logger.debug("Executing scheduled ({}ms) poll task {}", pollPeriodMillis, task);
-            this.executeOneTimePoll(task);
+            this.executeOneTimePoll(task, false);
         }, initialDelayMillis, pollPeriodMillis, TimeUnit.MILLISECONDS);
         scheduledPollTasks.put(task, future);
     }
@@ -605,6 +647,8 @@ public class ModbusManagerImpl implements ModbusManager {
         ModbusManagerImpl.connectionFactory.disconnectOnReturn(task.getEndpoint(), System.currentTimeMillis());
 
         future.cancel(true);
+
+        logger.info("Poll task {} canceled", task);
 
         try {
             // Close all idle connections as well (they will be reconnected if necessary on borrow)
@@ -639,7 +683,7 @@ public class ModbusManagerImpl implements ModbusManager {
                 callback.internalUpdateWriteError(message, e);
             }
             ModbusResponse response = transaction.getResponse();
-            logger.trace("Response for read (FC={}) {}", response.getFunctionCode(), response.getHexMessage());
+            logger.trace("Response for write (FC={}) {}", response.getFunctionCode(), response.getHexMessage());
             if ((response.getTransactionID() != transaction.getTransactionID()) && !response.isHeadless()) {
                 logger.warn(
                         "Transaction id of the response does not match request {}.  Endpoint {}. Connection: {}. Ignoring response.",

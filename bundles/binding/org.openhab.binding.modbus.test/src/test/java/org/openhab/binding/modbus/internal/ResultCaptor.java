@@ -12,8 +12,12 @@ import java.util.ArrayList;
 
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ResultCaptor<T> implements Answer<T> {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResultCaptor.class);
 
     private ArrayList<T> results = new ArrayList<>();
     private long waitMillis;
@@ -35,7 +39,13 @@ public class ResultCaptor<T> implements Answer<T> {
             results.add(result);
         }
         if (waitMillis > 0) {
-            Thread.sleep(waitMillis);
+            try {
+                Thread.sleep(waitMillis);
+            } catch (InterruptedException e) {
+                logger.error("Artificial sleep in tests interrupted", e);
+                throw e;
+            }
+
         }
         return result;
     }
