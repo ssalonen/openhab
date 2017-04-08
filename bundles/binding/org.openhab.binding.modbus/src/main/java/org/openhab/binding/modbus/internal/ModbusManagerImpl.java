@@ -35,6 +35,18 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
+import org.openhab.io.transport.modbus.ModbusManager;
+import org.openhab.io.transport.modbus.ModbusReadFunctionCode;
+import org.openhab.io.transport.modbus.ModbusReadRequestBlueprint;
+import org.openhab.io.transport.modbus.ModbusSlaveReaderVisitor;
+import org.openhab.io.transport.modbus.ModbusWriteCoilRequestBlueprint;
+import org.openhab.io.transport.modbus.ModbusWriteFunctionCode;
+import org.openhab.io.transport.modbus.ModbusWriteRegisterRequestBlueprint;
+import org.openhab.io.transport.modbus.ModbusWriteRequestBlueprint;
+import org.openhab.io.transport.modbus.ModbusWriteRequestBlueprintVisitor;
+import org.openhab.io.transport.modbus.RawModbusSlaveReader;
+import org.openhab.io.transport.modbus.ReadCallback;
+import org.openhab.io.transport.modbus.WriteCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

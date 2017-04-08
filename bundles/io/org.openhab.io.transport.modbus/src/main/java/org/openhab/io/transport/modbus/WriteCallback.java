@@ -1,4 +1,4 @@
-package org.openhab.binding.modbus.internal;
+package org.openhab.io.transport.modbus;
 
 import net.wimpi.modbus.ModbusException;
 import net.wimpi.modbus.msg.ModbusResponse;

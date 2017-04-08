@@ -1,4 +1,4 @@
-package org.openhab.binding.modbus.internal;
+package org.openhab.io.transport.modbus;
 
 public interface ModbusWriteCoilRequestBlueprint extends ModbusWriteRequestBlueprint {
 

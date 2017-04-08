@@ -1,8 +1,8 @@
-package org.openhab.binding.modbus.internal;
+package org.openhab.io.transport.modbus;
 
 import net.wimpi.modbus.Modbus;
 
-public interface ModbusReadRequestBlueprint {
+public interface ModbusWriteRequestBlueprint {
 
     /**
      * Returns the protocol identifier of this
@@ -19,23 +19,13 @@ public interface ModbusReadRequestBlueprint {
 
     /**
      * Returns the reference of the register/coil/discrete input to to start
-     * reading from with this
-     * <tt>ReadMultipleRegistersRequest</tt>.
+     * writing with this request
      * <p>
      *
      * @return the reference of the register
      *         to start reading from as <tt>int</tt>.
      */
     public int getReference();
-
-    /**
-     * Returns the length of the data appended
-     * after the protocol header.
-     * <p>
-     *
-     * @return the data length as <tt>int</tt>.
-     */
-    public int getDataLength();
 
     /**
      * Returns the unit identifier of this
@@ -62,6 +52,8 @@ public interface ModbusReadRequestBlueprint {
      *
      * @see net.wimpi.modbus.Modbus
      */
-    public ModbusReadFunctionCode getFunctionCode();
+    public ModbusWriteFunctionCode getFunctionCode();
+
+    public void accept(ModbusWriteRequestBlueprintVisitor visitor);
 
 }
