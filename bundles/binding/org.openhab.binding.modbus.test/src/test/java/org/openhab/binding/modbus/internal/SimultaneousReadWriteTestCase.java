@@ -26,6 +26,7 @@ import org.openhab.binding.modbus.internal.pooling.ModbusTCPSlaveEndpoint;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
+import org.openhab.io.transport.modbus.internal.ModbusManagerImpl;
 import org.openhab.model.item.binding.BindingConfigParseException;
 
 import net.wimpi.modbus.msg.ModbusRequest;

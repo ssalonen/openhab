@@ -1,10 +1,7 @@
-package org.openhab.binding.modbus.internal;
+package org.openhab.io.transport.modbus.internal;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +9,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -23,6 +19,10 @@ import org.apache.commons.pool2.SwallowedExceptionListener;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.openhab.binding.modbus.ModbusBindingProvider;
+import org.openhab.binding.modbus.internal.ModbusBinding;
+import org.openhab.binding.modbus.internal.ModbusConnectionException;
+import org.openhab.binding.modbus.internal.ModbusUnexpectedTransactionIdException;
+import org.openhab.binding.modbus.internal.ReadCallbackUsingIOConnection;
 import org.openhab.binding.modbus.internal.pooling.EndpointPoolConfiguration;
 import org.openhab.binding.modbus.internal.pooling.ModbusSerialSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveConnectionFactoryImpl;
@@ -34,7 +34,6 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.types.Command;
-import org.openhab.core.types.State;
 import org.openhab.io.transport.modbus.ModbusManager;
 import org.openhab.io.transport.modbus.ModbusReadFunctionCode;
 import org.openhab.io.transport.modbus.ModbusReadRequestBlueprint;
@@ -65,7 +64,6 @@ import net.wimpi.modbus.msg.ReadCoilsResponse;
 import net.wimpi.modbus.msg.ReadInputDiscretesRequest;
 import net.wimpi.modbus.msg.ReadInputDiscretesResponse;
 import net.wimpi.modbus.msg.ReadInputRegistersRequest;
-import net.wimpi.modbus.msg.ReadInputRegistersResponse;
 import net.wimpi.modbus.msg.ReadMultipleRegistersRequest;
 import net.wimpi.modbus.msg.ReadMultipleRegistersResponse;
 import net.wimpi.modbus.msg.WriteCoilRequest;
@@ -77,7 +75,6 @@ import net.wimpi.modbus.net.TCPMasterConnection;
 import net.wimpi.modbus.net.UDPMasterConnection;
 import net.wimpi.modbus.procimg.InputRegister;
 import net.wimpi.modbus.procimg.Register;
-import net.wimpi.modbus.util.BitVector;
 
 public class ModbusManagerImpl implements ModbusManager {
 
@@ -250,99 +247,24 @@ public class ModbusManagerImpl implements ModbusManager {
     private void invokeCallbackWithResponse(ModbusReadRequestBlueprint message, ReadCallback callback,
             ModbusResponse response) {
         try {
-            callback.accept(new ModbusSlaveReaderVisitor() {
+            if (message.getFunctionCode() == ModbusReadFunctionCode.READ_COILS) {
+                callback.internalUpdateItem(message, ((ReadCoilsResponse) response).getCoils());
+            } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_DISCRETES) {
+                callback.internalUpdateItem(message, ((ReadInputDiscretesResponse) response).getDiscretes());
+            } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
+                callback.internalUpdateItem(message, ((ReadMultipleRegistersResponse) response).getRegisters());
+            } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
+                callback.internalUpdateItem(message, ((ReadMultipleRegistersResponse) response).getRegisters());
+            } else {
+                throw new IllegalArgumentException(
+                        String.format("Unexpected function code %s", message.getFunctionCode()));
+            }
 
-                private State[] booleanToBooleanLikeStateCandidates(boolean boolValue) {
-                    State[] stateCandidatesBeforeTransformation;
-                    stateCandidatesBeforeTransformation = new State[] { boolValue ? OnOffType.ON : OnOffType.OFF,
-                            boolValue ? OpenClosedType.OPEN : OpenClosedType.CLOSED };
-                    return stateCandidatesBeforeTransformation;
-                }
+            callback.accept(new ModbusSlaveReaderVisitor() {
 
                 @Override
                 public void visit(RawModbusSlaveReader reader) {
-                    if (message.getFunctionCode() == ModbusReadFunctionCode.READ_COILS) {
-                        reader.internalUpdateItem(message, ((ReadCoilsResponse) response).getCoils());
-                    } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_DISCRETES) {
-                        reader.internalUpdateItem(message, ((ReadInputDiscretesResponse) response).getDiscretes());
-                    } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
-                        reader.internalUpdateItem(message, ((ReadMultipleRegistersResponse) response).getRegisters());
-                    } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
-                        reader.internalUpdateItem(message, ((ReadMultipleRegistersResponse) response).getRegisters());
-                    } else {
-                        throw new IllegalArgumentException(
-                                String.format("Unexpected function code %s", message.getFunctionCode()));
-                    }
-                }
 
-                private void updateFromBits(ReadCallbackUsingIOConnection reader, ItemIOConnection connection,
-                        BitVector bits) {
-                    boolean booleanState = bits.getBit(connection.getIndex());
-                    State[] stateCandidatesForTransformation;
-                    if (connection.supportBooleanLikeState()) {
-                        stateCandidatesForTransformation = booleanToBooleanLikeStateCandidates(booleanState);
-                    } else {
-                        stateCandidatesForTransformation = new State[] {
-                                booleanState ? new DecimalType(BigDecimal.ONE) : DecimalType.ZERO };
-                    }
-                    logger.trace("{}: Trying out IOConnection {} with state variations {}", message, connection,
-                            stateCandidatesForTransformation);
-                    for (State newState : stateCandidatesForTransformation) {
-                        boolean stateChanged = !newState.equals(connection.getPreviouslyPolledState());
-                        if (connection.supportsState(newState, stateChanged)) {
-                            Transformation transformation = connection.getTransformation();
-                            State transformedState = transformation == null ? newState
-                                    : transformation.transformState(connection.getAcceptedDataTypes(), newState);
-                            if (transformedState != null) {
-                                logger.trace("{}: Updating state {} (changed={}) matched ItemIOConnection {}.", message,
-                                        newState, stateChanged, connection);
-                                reader.internalUpdateItem(message, connection, transformedState);
-                                connection.setPreviouslyPolledState(newState);
-                                break;
-                            }
-                        } else {
-                            logger.trace(
-                                    "{}: Not updating since state {} (changed={}) not supported by ItemIOConnection {}.",
-                                    message, newState, stateChanged, connection);
-                        }
-                    }
-                    logger.trace("{}: Finished trying out IOConnection {} with state variations {}", message,
-                            connection, stateCandidatesForTransformation);
-                }
-
-                private void updateFromRegisters(ReadCallbackUsingIOConnection reader, ItemIOConnection connection,
-                        InputRegister[] registers) {
-                    String valueType = connection.getEffectiveValueType();
-                    State numericState = ModbusManagerImpl.extractStateFromRegisters(registers, connection.getIndex(),
-                            valueType);
-
-                    List<State> stateCandidatesForTransformation = new LinkedList<>();
-                    stateCandidatesForTransformation.add(numericState);
-                    if (connection.supportBooleanLikeState()) {
-                        boolean boolValue = !numericState.equals(DecimalType.ZERO);
-                        Stream.of(booleanToBooleanLikeStateCandidates(boolValue))
-                                .forEach(s -> stateCandidatesForTransformation.add(s));
-
-                    }
-                    for (State newState : stateCandidatesForTransformation) {
-                        boolean stateChanged = !newState.equals(connection.getPreviouslyPolledState());
-                        if (connection.supportsState(newState, stateChanged)) {
-                            logger.trace("{}: Updating state {} (changed={}) matched ItemIOConnection {}.", message,
-                                    newState, stateChanged, connection);
-                            Transformation transformation = connection.getTransformation();
-                            State transformedState = transformation == null ? newState
-                                    : transformation.transformState(connection.getAcceptedDataTypes(), newState);
-                            if (transformedState != null) {
-                                reader.internalUpdateItem(message, connection, transformedState);
-                                connection.setPreviouslyPolledState(newState);
-                                break;
-                            }
-                        } else {
-                            logger.trace(
-                                    "{}: Not updating since state {} (changed={}) not supported by ItemIOConnection {}.",
-                                    message, newState, stateChanged, connection);
-                        }
-                    }
                 }
 
                 /*
@@ -358,45 +280,7 @@ public class ModbusManagerImpl implements ModbusManager {
                  */
                 @Override
                 public void visit(ReadCallbackUsingIOConnection reader) {
-                    List<ItemIOConnection> connections = reader.getItemIOConnections();
-                    for (ItemIOConnection connection : connections) {
-                        if (message.getFunctionCode() == ModbusReadFunctionCode.READ_COILS
-                                || message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_DISCRETES) {
-                            BitVector bits;
-                            if (message.getFunctionCode() == ModbusReadFunctionCode.READ_COILS) {
-                                bits = ((ReadCoilsResponse) response).getCoils();
-                            } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_DISCRETES) {
-                                bits = ((ReadInputDiscretesResponse) response).getDiscretes();
-                            } else {
-                                throw new IllegalStateException();
-                            }
 
-                            if (connection.getIndex() >= message.getDataLength()) {
-                                logger.warn(
-                                        "IO connection {} read index '{}' is out-of-bound. Polled data length is only {} bits."
-                                                + " Check your configuration!",
-                                        connection, connection.getIndex(), message.getDataLength());
-                                continue;
-                            }
-                            updateFromBits(reader, connection, bits);
-                        } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_REGISTERS
-                                || message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
-                            InputRegister[] registers;
-                            if (message.getFunctionCode() == ModbusReadFunctionCode.READ_INPUT_REGISTERS) {
-                                registers = ((ReadInputRegistersResponse) response).getRegisters();
-
-                            } else if (message.getFunctionCode() == ModbusReadFunctionCode.READ_MULTIPLE_REGISTERS) {
-                                registers = ((ReadMultipleRegistersResponse) response).getRegisters();
-                            } else {
-                                throw new IllegalStateException();
-                            }
-                            updateFromRegisters(reader, connection, registers);
-                        } else {
-                            throw new IllegalArgumentException(
-                                    String.format("Unexpected function code %s", message.getFunctionCode()));
-                        }
-
-                    }
                 }
             });
         } catch (Exception e) {

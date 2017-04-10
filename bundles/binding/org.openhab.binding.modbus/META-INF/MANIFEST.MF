@@ -5,7 +5,10 @@ Bundle-SymbolicName: org.openhab.binding.modbus
 Bundle-Version: 1.10.0.qualifier
 Bundle-Activator: org.openhab.binding.modbus.internal.ModbusActivator
 Bundle-Vendor: openHAB.org
-Import-Package: org.apache.commons.collections,
+Import-Package: gnu.io,
+ net.wimpi.modbus.procimg,
+ net.wimpi.modbus.util,
+ org.apache.commons.collections,
  org.apache.commons.collections.iterators,
  org.apache.commons.collections.keyvalue,
  org.apache.commons.io,
@@ -19,6 +22,7 @@ Import-Package: org.apache.commons.collections,
  org.openhab.core.service,
  org.openhab.core.transform,
  org.openhab.core.types,
+ org.openhab.io.transport.modbus,
  org.openhab.library.tel.items,
  org.openhab.library.tel.types,
  org.openhab.model.item.binding,
@@ -30,8 +34,7 @@ Import-Package: org.apache.commons.collections,
  org.quartz.impl,
  org.quartz.impl.matchers,
  org.quartz.utils,
- org.slf4j,
- gnu.io
+ org.slf4j
 Export-Package: org.openhab.binding.modbus
 Service-Component: OSGI-INF/*.xml
 Bundle-ClassPath: .,
