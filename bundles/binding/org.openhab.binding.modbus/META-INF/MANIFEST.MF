@@ -35,7 +35,8 @@ Import-Package: gnu.io,
  org.quartz.impl.matchers,
  org.quartz.utils,
  org.slf4j
-Export-Package: org.openhab.binding.modbus
+Export-Package: org.openhab.binding.modbus,
+ org.openhab.binding.modbus.internal
 Service-Component: OSGI-INF/*.xml
 Bundle-ClassPath: .,
  lib/commons-pool2-2.4.2.jar

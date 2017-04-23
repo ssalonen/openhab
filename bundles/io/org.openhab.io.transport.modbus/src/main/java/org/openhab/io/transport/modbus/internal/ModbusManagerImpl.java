@@ -18,11 +18,6 @@ import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.SwallowedExceptionListener;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.openhab.binding.modbus.ModbusBindingProvider;
-import org.openhab.binding.modbus.internal.ModbusBinding;
-import org.openhab.binding.modbus.internal.ModbusConnectionException;
-import org.openhab.binding.modbus.internal.ModbusUnexpectedTransactionIdException;
-import org.openhab.binding.modbus.internal.ReadCallbackUsingIOConnection;
 import org.openhab.binding.modbus.internal.pooling.EndpointPoolConfiguration;
 import org.openhab.binding.modbus.internal.pooling.ModbusSerialSlaveEndpoint;
 import org.openhab.binding.modbus.internal.pooling.ModbusSlaveConnectionFactoryImpl;
@@ -37,13 +32,11 @@ import org.openhab.core.types.Command;
 import org.openhab.io.transport.modbus.ModbusManager;
 import org.openhab.io.transport.modbus.ModbusReadFunctionCode;
 import org.openhab.io.transport.modbus.ModbusReadRequestBlueprint;
-import org.openhab.io.transport.modbus.ModbusSlaveReaderVisitor;
 import org.openhab.io.transport.modbus.ModbusWriteCoilRequestBlueprint;
 import org.openhab.io.transport.modbus.ModbusWriteFunctionCode;
 import org.openhab.io.transport.modbus.ModbusWriteRegisterRequestBlueprint;
 import org.openhab.io.transport.modbus.ModbusWriteRequestBlueprint;
 import org.openhab.io.transport.modbus.ModbusWriteRequestBlueprintVisitor;
-import org.openhab.io.transport.modbus.RawModbusSlaveReader;
 import org.openhab.io.transport.modbus.ReadCallback;
 import org.openhab.io.transport.modbus.WriteCallback;
 import org.slf4j.Logger;
@@ -149,6 +142,23 @@ public class ModbusManagerImpl implements ModbusManager {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(ModbusManagerImpl.class);
+
+    /**
+     * Time to wait between connection passive+borrow, i.e. time to wait between
+     * transactions
+     * Default 60ms for TCP slaves, Siemens S7 1212 PLC couldn't handle faster
+     * requests with default settings.
+     */
+    public static final long DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS = 60;
+
+    /**
+     * Time to wait between connection passive+borrow, i.e. time to wait between
+     * transactions
+     * Default 35ms for Serial slaves, motivation discussed
+     * here https://community.openhab.org/t/connection-pooling-in-modbus-binding/5246/111?u=ssalonen
+     */
+    public static final long DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS = 35;
+
     private static GenericKeyedObjectPoolConfig generalPoolConfig = new GenericKeyedObjectPoolConfig();
 
     static {
@@ -203,8 +213,7 @@ public class ModbusManagerImpl implements ModbusManager {
                 @Override
                 public EndpointPoolConfiguration visit(ModbusTCPSlaveEndpoint modbusIPSlavePoolingKey) {
                     EndpointPoolConfiguration endpointPoolConfig = new EndpointPoolConfiguration();
-                    endpointPoolConfig
-                            .setPassivateBorrowMinMillis(ModbusBinding.DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
+                    endpointPoolConfig.setPassivateBorrowMinMillis(DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
                     endpointPoolConfig.setConnectMaxTries(Modbus.DEFAULT_RETRIES);
                     return endpointPoolConfig;
                 }
@@ -214,8 +223,7 @@ public class ModbusManagerImpl implements ModbusManager {
                     EndpointPoolConfiguration endpointPoolConfig = new EndpointPoolConfiguration();
                     // never "disconnect" (close/open serial port) serial connection between borrows
                     endpointPoolConfig.setReconnectAfterMillis(-1);
-                    endpointPoolConfig
-                            .setPassivateBorrowMinMillis(ModbusBinding.DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
+                    endpointPoolConfig.setPassivateBorrowMinMillis(DEFAULT_SERIAL_INTER_TRANSACTION_DELAY_MILLIS);
                     endpointPoolConfig.setConnectMaxTries(Modbus.DEFAULT_RETRIES);
                     return endpointPoolConfig;
                 }
@@ -223,8 +231,7 @@ public class ModbusManagerImpl implements ModbusManager {
                 @Override
                 public EndpointPoolConfiguration visit(ModbusUDPSlaveEndpoint modbusUDPSlavePoolingKey) {
                     EndpointPoolConfiguration endpointPoolConfig = new EndpointPoolConfiguration();
-                    endpointPoolConfig
-                            .setPassivateBorrowMinMillis(ModbusBinding.DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
+                    endpointPoolConfig.setPassivateBorrowMinMillis(DEFAULT_TCP_INTER_TRANSACTION_DELAY_MILLIS);
                     endpointPoolConfig.setConnectMaxTries(Modbus.DEFAULT_RETRIES);
                     return endpointPoolConfig;
                 }
@@ -260,29 +267,6 @@ public class ModbusManagerImpl implements ModbusManager {
                         String.format("Unexpected function code %s", message.getFunctionCode()));
             }
 
-            callback.accept(new ModbusSlaveReaderVisitor() {
-
-                @Override
-                public void visit(RawModbusSlaveReader reader) {
-
-                }
-
-                /*
-                 * Convert polled value (boolean bit with coil and discrete input, or numeric value with input register
-                 * and
-                 * holding register) to "boolean state" if we have IOConnection bound to boolean states (ON/OFF, or
-                 * OPEN/CLOSED).
-                 *
-                 * Actually, we try both ON/OPEN and OFF/CLOSED, and go with the one that is accepted
-                 * by the transformation.
-                 *
-                 * Otherwise, go with the numeric value.
-                 */
-                @Override
-                public void visit(ReadCallbackUsingIOConnection reader) {
-
-                }
-            });
         } catch (Exception e) {
             logger.error("Unhandled exception {} {}", e.getClass().getName(), e.getMessage(), e);
         }
@@ -608,6 +592,18 @@ public class ModbusManagerImpl implements ModbusManager {
         return connectionFactory.getEndpointPoolConfiguration(endpoint);
     }
 
+    static final public String VALUE_TYPE_BIT = "bit";
+    static final public String VALUE_TYPE_INT8 = "int8";
+    static final public String VALUE_TYPE_UINT8 = "uint8";
+    static final public String VALUE_TYPE_INT16 = "int16";
+    static final public String VALUE_TYPE_UINT16 = "uint16";
+    static final public String VALUE_TYPE_INT32 = "int32";
+    static final public String VALUE_TYPE_UINT32 = "uint32";
+    static final public String VALUE_TYPE_FLOAT32 = "float32";
+    static final public String VALUE_TYPE_INT32_SWAP = "int32_swap";
+    static final public String VALUE_TYPE_UINT32_SWAP = "uint32_swap";
+    static final public String VALUE_TYPE_FLOAT32_SWAP = "float32_swap";
+
     /**
      * Read data from registers and convert the result to DecimalType
      * Interpretation of <tt>index</tt> goes as follows depending on type
@@ -653,46 +649,46 @@ public class ModbusManagerImpl implements ModbusManager {
      *
      */
     public static DecimalType extractStateFromRegisters(InputRegister[] registers, int index, String type) {
-        if (type.equals(ModbusBindingProvider.VALUE_TYPE_BIT)) {
+        if (type.equals(VALUE_TYPE_BIT)) {
             return new DecimalType((registers[index / 16].toUnsignedShort() >> (index % 16)) & 1);
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_INT8)) {
+        } else if (type.equals(VALUE_TYPE_INT8)) {
             return new DecimalType(registers[index / 2].toBytes()[1 - (index % 2)]);
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_UINT8)) {
+        } else if (type.equals(VALUE_TYPE_UINT8)) {
             return new DecimalType((registers[index / 2].toUnsignedShort() >> (8 * (index % 2))) & 0xff);
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_INT16)) {
+        } else if (type.equals(VALUE_TYPE_INT16)) {
             ByteBuffer buff = ByteBuffer.allocate(2);
             buff.put(registers[index].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getShort(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_UINT16)) {
+        } else if (type.equals(VALUE_TYPE_UINT16)) {
             return new DecimalType(registers[index].toUnsignedShort());
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_INT32)) {
+        } else if (type.equals(VALUE_TYPE_INT32)) {
             ByteBuffer buff = ByteBuffer.allocate(4);
             buff.put(registers[index * 2 + 0].toBytes());
             buff.put(registers[index * 2 + 1].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getInt(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_UINT32)) {
+        } else if (type.equals(VALUE_TYPE_UINT32)) {
             ByteBuffer buff = ByteBuffer.allocate(8);
             buff.position(4);
             buff.put(registers[index * 2 + 0].toBytes());
             buff.put(registers[index * 2 + 1].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getLong(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_FLOAT32)) {
+        } else if (type.equals(VALUE_TYPE_FLOAT32)) {
             ByteBuffer buff = ByteBuffer.allocate(4);
             buff.put(registers[index * 2 + 0].toBytes());
             buff.put(registers[index * 2 + 1].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getFloat(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_INT32_SWAP)) {
+        } else if (type.equals(VALUE_TYPE_INT32_SWAP)) {
             ByteBuffer buff = ByteBuffer.allocate(4);
             buff.put(registers[index * 2 + 1].toBytes());
             buff.put(registers[index * 2 + 0].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getInt(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_UINT32_SWAP)) {
+        } else if (type.equals(VALUE_TYPE_UINT32_SWAP)) {
             ByteBuffer buff = ByteBuffer.allocate(8);
             buff.position(4);
             buff.put(registers[index * 2 + 1].toBytes());
             buff.put(registers[index * 2 + 0].toBytes());
             return new DecimalType(buff.order(ByteOrder.BIG_ENDIAN).getLong(0));
-        } else if (type.equals(ModbusBindingProvider.VALUE_TYPE_FLOAT32_SWAP)) {
+        } else if (type.equals(VALUE_TYPE_FLOAT32_SWAP)) {
             ByteBuffer buff = ByteBuffer.allocate(4);
             buff.put(registers[index * 2 + 1].toBytes());
             buff.put(registers[index * 2 + 0].toBytes());
