@@ -42,8 +42,6 @@ import org.openhab.io.transport.modbus.WriteCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.sun.istack.internal.NotNull;
-
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.ModbusException;
 import net.wimpi.modbus.io.ModbusSerialTransaction;
@@ -588,7 +586,7 @@ public class ModbusManagerImpl implements ModbusManager {
     }
 
     @Override
-    public @NotNull EndpointPoolConfiguration getEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint) {
+    public EndpointPoolConfiguration getEndpointPoolConfiguration(ModbusSlaveEndpoint endpoint) {
         return connectionFactory.getEndpointPoolConfiguration(endpoint);
     }
 
