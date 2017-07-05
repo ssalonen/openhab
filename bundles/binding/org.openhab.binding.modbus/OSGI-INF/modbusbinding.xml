@@ -18,7 +18,6 @@
    </service>
    
    <property name="service.pid" type="String" value="org.openhab.modbus"/>
-   <property name="event.topics" type="String" value="openhab/*"/>
    
    <reference bind="setEventPublisher" cardinality="1..1" 
    	  interface="org.openhab.core.events.EventPublisher" name="EventPublisher"

@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: openHAB ModbusTCP Master Binding
-Bundle-SymbolicName: org.openhab.binding.modbus
+Bundle-SymbolicName: org.openhab.binding.modbus-openhab1
 Bundle-Version: 1.10.0.qualifier
 Bundle-Activator: org.openhab.binding.modbus.internal.ModbusActivator
 Bundle-Vendor: openHAB.org
