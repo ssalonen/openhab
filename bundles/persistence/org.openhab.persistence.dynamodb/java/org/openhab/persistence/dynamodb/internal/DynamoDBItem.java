@@ -30,6 +30,8 @@ public interface DynamoDBItem<T> {
 
     static final String ATTRIBUTE_NAME_ITEMSTATE = "itemstate";
 
+    static final String ATTRIBUTE_NAME_TTL = "timeToLiveEpoch";
+
     /**
      * Convert this AbstractDynamoItem as HistoricItem.
      *
@@ -44,11 +46,15 @@ public interface DynamoDBItem<T> {
 
     Date getTime();
 
+    long getTimeToLiveEpoch();
+
     void setName(String name);
 
     void setState(T state);
 
     void setTime(Date time);
+
+    void setTimeToLiveEpoch(long timeToLiveEpoch);
 
     void accept(DynamoDBItemVisitor visitor);
 

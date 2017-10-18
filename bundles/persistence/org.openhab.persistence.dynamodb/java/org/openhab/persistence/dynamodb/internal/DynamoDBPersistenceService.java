@@ -47,6 +47,8 @@ import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 import com.amazonaws.services.dynamodbv2.model.TableDescription;
 import com.amazonaws.services.dynamodbv2.model.TableStatus;
+import com.amazonaws.services.dynamodbv2.model.TimeToLiveSpecification;
+import com.amazonaws.services.dynamodbv2.model.UpdateTimeToLiveRequest;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -165,18 +167,37 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
                 }
             }
             tableName = request.getTableName();
+
+            boolean tableJustCreated;
             try {
                 db.getDynamoClient().describeTable(tableName);
+                tableJustCreated = false;
             } catch (ResourceNotFoundException e) {
                 // No table present, continue with creation
                 db.getDynamoClient().createTable(request);
+                tableJustCreated = true;
             } catch (AmazonClientException e) {
                 logger.error("Table creation failed due to error in describeTable operation", e);
                 return false;
             }
 
             // table found or just created, wait
-            return waitForTableToBecomeActive(tableName);
+            if (waitForTableToBecomeActive(tableName)) {
+                if (tableJustCreated) {
+                    // TODO: conditionally set TTL, only if configured to use ttl
+                    UpdateTimeToLiveRequest ttlRequest = new UpdateTimeToLiveRequest();
+                    ttlRequest.setTableName(tableName);
+                    TimeToLiveSpecification ttlSpec = new TimeToLiveSpecification();
+                    ttlSpec.setAttributeName(DynamoDBItem.ATTRIBUTE_NAME_TTL);
+                    ttlSpec.setEnabled(true);
+
+                    ttlRequest.withTimeToLiveSpecification(ttlSpec);
+                    db.getDynamoClient().updateTimeToLive(ttlRequest);
+                }
+                return true;
+            } else {
+                return false;
+            }
 
         } catch (AmazonClientException e) {
             logger.error("Exception when creating table", e);
@@ -267,12 +288,14 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
         }
         String realName = item.getName();
         String name = (alias != null) ? alias : realName;
-        Date time = new Date(System.currentTimeMillis());
+        long nowMillis = System.currentTimeMillis();
+        Date time = new Date(nowMillis);
 
         State state = item.getState();
         logger.trace("Tried to get item from item class {}, state is {}", item.getClass(), state.toString());
         DynamoDBItem<?> dynamoItem = AbstractDynamoDBItem.fromState(name, state, time);
         DynamoDBMapper mapper = getDBMapper(tableNameResolver.fromItem(dynamoItem));
+        dynamoItem.setTimeToLiveEpoch(nowMillis / 1000L + 10L);
 
         if (!createTable(mapper, dynamoItem.getClass())) {
             logger.warn("Table creation failed. Not storing item");

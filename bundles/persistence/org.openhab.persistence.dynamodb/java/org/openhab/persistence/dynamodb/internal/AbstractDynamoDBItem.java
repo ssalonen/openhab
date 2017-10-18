@@ -91,6 +91,7 @@ public abstract class AbstractDynamoDBItem<T> implements DynamoDBItem<T> {
     protected String name;
     protected T state;
     protected Date time;
+    protected long timeToLiveEpoch = Long.MAX_VALUE; // By default, items do not expire.
 
     public AbstractDynamoDBItem(String name, T state, Date time) {
         this.name = name;

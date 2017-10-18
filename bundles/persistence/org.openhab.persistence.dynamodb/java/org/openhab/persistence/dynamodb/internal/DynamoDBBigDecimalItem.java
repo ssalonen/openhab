@@ -63,6 +63,12 @@ public class DynamoDBBigDecimalItem extends AbstractDynamoDBItem<BigDecimal> {
     }
 
     @Override
+    @DynamoDBAttribute(attributeName = DynamoDBItem.ATTRIBUTE_NAME_TTL)
+    public long getTimeToLiveEpoch() {
+        return timeToLiveEpoch;
+    }
+
+    @Override
     public void setName(String name) {
         this.name = name;
     }
@@ -75,6 +81,11 @@ public class DynamoDBBigDecimalItem extends AbstractDynamoDBItem<BigDecimal> {
     @Override
     public void setTime(Date time) {
         this.time = time;
+    }
+
+    @Override
+    public void setTimeToLiveEpoch(long timeToLiveEpoch) {
+        this.timeToLiveEpoch = timeToLiveEpoch;
     }
 
     @Override

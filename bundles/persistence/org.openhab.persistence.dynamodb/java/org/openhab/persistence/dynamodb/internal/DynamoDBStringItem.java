@@ -50,6 +50,12 @@ public class DynamoDBStringItem extends AbstractDynamoDBItem<String> {
     }
 
     @Override
+    @DynamoDBAttribute(attributeName = DynamoDBItem.ATTRIBUTE_NAME_TTL)
+    public long getTimeToLiveEpoch() {
+        return timeToLiveEpoch;
+    }
+
+    @Override
     public void accept(org.openhab.persistence.dynamodb.internal.DynamoDBItemVisitor visitor) {
         visitor.visit(this);
     }
@@ -68,4 +74,10 @@ public class DynamoDBStringItem extends AbstractDynamoDBItem<String> {
     public void setTime(Date time) {
         this.time = time;
     }
+
+    @Override
+    public void setTimeToLiveEpoch(long timeToLiveEpoch) {
+        this.timeToLiveEpoch = timeToLiveEpoch;
+    }
+
 }
