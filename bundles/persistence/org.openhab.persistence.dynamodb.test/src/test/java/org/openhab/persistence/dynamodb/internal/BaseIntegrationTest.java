@@ -15,6 +15,7 @@ import java.util.Map.Entry;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.junit.BeforeClass;
+import org.openhab.core.items.GroupItem;
 import org.openhab.core.items.Item;
 import org.openhab.core.items.ItemNotFoundException;
 import org.openhab.core.items.ItemNotUniqueException;
@@ -36,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 
 /**
- * 
+ *
  * @author Sami Salonen
  *
  */
@@ -61,6 +62,7 @@ public class BaseIntegrationTest {
         items.put("datetime", new DateTimeItem("datetime"));
         items.put("call", new CallItem("call"));
         items.put("location", new LocationItem("location"));
+        items.put("group_number", new GroupItem("location", new NumberItem("foo")));
 
         service = new DynamoDBPersistenceService();
         service.setItemRegistry(new ItemRegistry() {

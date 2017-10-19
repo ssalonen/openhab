@@ -314,7 +314,7 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
             return Collections.emptyList();
         }
 
-        Class<DynamoDBItem<?>> dtoClass = AbstractDynamoDBItem.getDynamoItemClass(item.getClass());
+        Class<DynamoDBItem<?>> dtoClass = AbstractDynamoDBItem.getDynamoItemClass(item);
         String tableName = tableNameResolver.fromClass(dtoClass);
         DynamoDBMapper mapper = getDBMapper(tableName);
         logger.debug("item {} (class {}) will be tried to query using dto class {} from table {}", itemName,
@@ -367,7 +367,7 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
                 .withLimit(filter.getPageSize());
         Condition timeFilter = maybeAddTimeFilter(queryExpression, filter);
         maybeAddStateFilter(filter, queryExpression);
-        logger.debug("Querying: {} with {}", filter.getItemName(), timeFilter);
+        logger.debug("Querying: {} with timeFilter={}", filter.getItemName(), timeFilter);
         return queryExpression;
     }
 

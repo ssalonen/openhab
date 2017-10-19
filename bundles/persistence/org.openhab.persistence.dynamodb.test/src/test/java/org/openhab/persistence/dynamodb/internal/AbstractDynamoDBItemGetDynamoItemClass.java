@@ -13,6 +13,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 
 import org.junit.Test;
+import org.openhab.core.items.GroupItem;
 import org.openhab.core.library.items.ColorItem;
 import org.openhab.core.library.items.ContactItem;
 import org.openhab.core.library.items.DateTimeItem;
@@ -33,51 +34,67 @@ public class AbstractDynamoDBItemGetDynamoItemClass {
 
     @Test
     public void testCallItem() throws IOException {
-        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(CallItem.class));
+        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(new CallItem("")));
     }
 
     @Test
     public void testContactItem() throws IOException {
-        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(ContactItem.class));
+        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(new ContactItem("")));
     }
 
     @Test
     public void testDateTimeItem() throws IOException {
-        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(DateTimeItem.class));
+        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(new DateTimeItem("")));
     }
 
     @Test
     public void testStringItem() throws IOException {
-        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(StringItem.class));
+        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(new StringItem("")));
     }
 
     @Test
     public void testLocationItem() throws IOException {
-        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(LocationItem.class));
+        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(new LocationItem("")));
     }
 
     @Test
     public void testNumberItem() throws IOException {
-        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(NumberItem.class));
+        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(new NumberItem("")));
     }
 
     @Test
     public void testColorItem() throws IOException {
-        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(ColorItem.class));
+        assertEquals(DynamoDBStringItem.class, AbstractDynamoDBItem.getDynamoItemClass(new ColorItem("")));
     }
 
     @Test
     public void testDimmerItem() throws IOException {
-        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(DimmerItem.class));
+        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(new DimmerItem("")));
     }
 
     @Test
     public void testRollershutterItem() throws IOException {
-        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(RollershutterItem.class));
+        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(new RollershutterItem("")));
     }
 
     @Test
     public void testOnOffTypeWithSwitchItem() throws IOException {
-        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(SwitchItem.class));
+        assertEquals(DynamoDBBigDecimalItem.class, AbstractDynamoDBItem.getDynamoItemClass(new SwitchItem("")));
+    }
+
+    //
+    // Test some group items as well
+    //
+
+    @Test
+    public void testColorGroupItem() throws IOException {
+        assertEquals(DynamoDBStringItem.class,
+                AbstractDynamoDBItem.getDynamoItemClass(new GroupItem("", new ColorItem(""))));
+    }
+
+    @Test
+    public void testOnOffTypeWithSwitchGroupItem() throws IOException {
+        assertEquals(DynamoDBBigDecimalItem.class,
+                AbstractDynamoDBItem.getDynamoItemClass(new GroupItem("", new SwitchItem(""))));
     }
 }

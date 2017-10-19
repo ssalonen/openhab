@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
+import org.openhab.core.items.GroupItem;
 import org.openhab.core.items.Item;
 import org.openhab.core.library.items.ColorItem;
 import org.openhab.core.library.items.ContactItem;
@@ -78,14 +79,23 @@ public abstract class AbstractDynamoDBItem<T> implements DynamoDBItem<T> {
         itemClassToDynamoItemClass.put(ColorItem.class, DynamoDBStringItem.class); // inherited from DimmerItem
     }
 
-    public static final Class<DynamoDBItem<?>> getDynamoItemClass(Class<? extends Item> itemClass)
+    private static final Class<DynamoDBItem<?>> getDynamoItemClass(Class<? extends Item> itemClass)
             throws NullPointerException {
+
         @SuppressWarnings("unchecked")
         Class<DynamoDBItem<?>> dtoclass = (Class<DynamoDBItem<?>>) itemClassToDynamoItemClass.get(itemClass);
         if (dtoclass == null) {
             throw new NullPointerException(String.format("Unknown item class %s", itemClass));
         }
         return dtoclass;
+    }
+
+    public static final Class<DynamoDBItem<?>> getDynamoItemClass(Item item) {
+        if (item instanceof GroupItem) {
+            return getDynamoItemClass(((GroupItem) item).getBaseItem());
+        } else {
+            return getDynamoItemClass(item.getClass());
+        }
     }
 
     protected String name;
@@ -134,6 +144,9 @@ public abstract class AbstractDynamoDBItem<T> implements DynamoDBItem<T> {
     @Override
     public HistoricItem asHistoricItem(final Item item) {
         final State[] state = new State[1];
+        if (item instanceof GroupItem) {
+            return asHistoricItem(((GroupItem) item).getBaseItem());
+        }
         accept(new DynamoDBItemVisitor() {
 
             @Override
